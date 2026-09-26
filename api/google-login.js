@@ -2,7 +2,6 @@ import { OAuth2Client } from 'google-auth-library';
 import jwt from 'jsonwebtoken';
 
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
-
 const users = new Map();
 
 export default async function handler(req, res) {
@@ -43,7 +42,7 @@ export default async function handler(req, res) {
 
     const jwtToken = jwt.sign(
       { email },
-      process.env.JWT_SECRET || 'dev-secret',
+      process.env.JWT_SECRET || 'dev-secret-key-change-in-production',
       { expiresIn: '7d' }
     );
 
@@ -53,7 +52,7 @@ export default async function handler(req, res) {
       hasCv: !!users.get(email).cvText
     });
   } catch (error) {
-    console.error('Google Login Error:', error);
+    console.error('Google Login Error:', error.message);
     res.status(401).json({ error: 'Authentication failed' });
   }
 }
