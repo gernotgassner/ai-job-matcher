@@ -118,7 +118,7 @@ $('removeCvBtn').addEventListener('click', async () => {
   if (!currentUser) return;
 
   try {
-    const res = await fetch(`${API_BASE}/cv/delete`, {
+    const res = await fetch(`${API_BASE}/cv-delete`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -152,7 +152,7 @@ $('scanBtn').addEventListener('click', async () => {
   showStatus('🔄 Suche läuft...', 'info');
 
   try {
-    const res = await fetch(`${API_BASE}/jobs/search`, {
+    const res = await fetch(`${API_BASE}/jobs-search`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
