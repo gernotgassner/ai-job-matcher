@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AI Job Matcher</title>
+    <meta name="description" content="KI-gestützte Job-Matcher WebApp mit Lebenslaufvergleich" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="container">
+      <header>
+        <div>
+          <small>AI JOB MATCHER</small>
+          <h1>Jobs finden, die zu dir passen.</h1>
+        </div>
+        <button id="logout" class="secondary hidden">Abmelden</button>
+      </header>
+
+      <section id="login" class="card narrow">
+        <h2>Willkommen</h2>
+        <p>Demo-Testlogin für die erste Version.</p>
+        <input id="email" type="email" value="demo.user@gmail.com" placeholder="E-Mail" />
+        <button id="loginButton">Mit Google anmelden (Testlogin)</button>
+      </section>
+
+      <section id="app" class="hidden">
+        <div class="grid">
+          <section class="card">
+            <h2>Lebenslauf</h2>
+            <label class="upload">
+              📄 Lebenslauf hochladen
+              <input id="cv" type="file" accept=".pdf,.doc,.docx,.txt" />
+            </label>
+            <p id="cvStatus">Noch kein Lebenslauf</p>
+            <button id="removeCv" class="danger">Lebenslauf löschen</button>
+          </section>
+
+          <section class="card">
+            <h2>Jobs suchen</h2>
+            <label>
+              Land
+              <select id="country">
+                <option>Deutschland</option>
+                <option>Österreich</option>
+                <option>Schweiz</option>
+                <option>Niederlande</option>
+                <option>USA</option>
+              </select>
+            </label>
+            <label>
+              Berufsbezeichnung
+              <input id="role" placeholder="z. B. Frontend Entwickler" />
+            </label>
+            <button id="scan">Jobs durchsuchen</button>
+            <p id="status"></p>
+          </section>
+        </div>
+
+        <section class="card">
+          <h2>Passende Angebote (mindestens 90%)</h2>
+          <div id="results">
+            <p class="muted">Lade einen Lebenslauf hoch und starte einen Scan.</p>
+          </div>
+        </section>
+
+        <section class="card">
+          <h2>Favoriten</h2>
+          <div id="favorites">
+            <p class="muted">Noch keine Favoriten.</p>
+          </div>
+        </section>
+      </section>
+    </main>
+
+    <script src="app.js"></script>
+  </body>
+</html>
