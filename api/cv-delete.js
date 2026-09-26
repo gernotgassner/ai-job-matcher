@@ -4,8 +4,8 @@ const users = new Map();
 
 function verifyToken(token) {
   try {
-    return jwt.verify(token, process.env.JWT_SECRET || 'dev-secret');
-  } catch {
+    return jwt.verify(token, process.env.JWT_SECRET || 'dev-secret-key-change-in-production');
+  } catch (error) {
     return null;
   }
 }
@@ -19,7 +19,8 @@ export default function handler(req, res) {
     return res.status(200).end();
   }
 
-  const token = req.headers.authorization?.split(' ')[1];
+  const authHeader = req.headers.authorization || '';
+  const token = authHeader.split(' ')[1];
   const decoded = verifyToken(token);
 
   if (!decoded) {
