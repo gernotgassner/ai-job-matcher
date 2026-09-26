@@ -2,12 +2,6 @@
   "buildCommand": "npm install",
   "outputDirectory": "public",
   "installCommand": "npm install",
-  "env": {
-    "JSEARCH_API_KEY": "@jsearch_api_key",
-    "GOOGLE_CLIENT_ID": "@google_client_id",
-    "GOOGLE_CLIENT_SECRET": "@google_client_secret",
-    "JWT_SECRET": "@jwt_secret"
-  },
   "functions": {
     "api/**/*.js": {
       "memory": 1024,
