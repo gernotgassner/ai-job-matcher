@@ -9,7 +9,7 @@ const $ = (id) => document.getElementById(id);
 function initGoogleLogin() {
   if (window.google && window.google.accounts) {
     google.accounts.id.initialize({
-      client_id: 'YOUR_GOOGLE_CLIENT_ID_HERE',
+      client_id: '986980931499-euoqjpb7uj4h045uf2rns52ijbbke1g6.apps.googleusercontent.com',
       callback: handleGoogleLogin
     });
     google.accounts.id.renderButton(
