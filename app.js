@@ -1,147 +1,320 @@
-const KEY = 'ai-job-matcher-v1';
-let state = JSON.parse(localStorage.getItem(KEY) || '{}');
+const API_BASE = '/api';
+let currentUser = null;
+let currentToken = null;
 
 const $ = (id) => document.getElementById(id);
-const save = () => localStorage.setItem(KEY, JSON.stringify(state));
 
-const bucket = () => {
-  const key = state.user;
-  if (!key) return null;
-  if (!state[key]) state[key] = { cv: null, favorites: {}, results: [] };
-  return state[key];
-};
-
-const demo = [
-  ['Frontend Developer', 'NovaLabs GmbH', 'Berlin', 'https://example.com/jobs/frontend', 'React, TypeScript, JavaScript, UX, APIs und Accessibility'],
-  ['Fullstack Engineer', 'BluePeak Solutions', 'Hamburg', 'https://example.com/jobs/fullstack', 'Node.js, React, TypeScript, PostgreSQL, APIs und Cloud'],
-  ['Product Designer', 'Northwind Digital', 'München', 'https://example.com/jobs/design', 'Figma, UX Research, UI Design, Accessibility und Design Systems']
-];
-
-function keywords(s) {
-  return (s || '').toLowerCase().match(/[a-zäöüß+#.]{3,}/g) || [];
+// Google Login Initialisierung
+function initGoogleLogin() {
+  if (window.google && window.google.accounts) {
+    google.accounts.id.initialize({
+      client_id: 'YOUR_GOOGLE_CLIENT_ID_HERE',
+      callback: handleGoogleLogin
+    });
+    google.accounts.id.renderButton(
+      document.getElementById('googleButtonContainer'),
+      {
+        theme: 'outline',
+        size: 'large',
+        width: '300'
+      }
+    );
+  }
 }
 
-function score(cvText, searchText) {
-  const a = new Set(keywords(cvText));
-  const b = [...new Set(keywords(searchText))];
-  const hits = b.filter((x) => a.has(x)).length;
-  return Math.min(100, Math.round((hits / Math.max(1, b.length)) * 100 + hits * 4));
+async function handleGoogleLogin(response) {
+  try {
+    const res = await fetch(`${API_BASE}/google-login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: response.credential })
+    });
+
+    const data = await res.json();
+    if (data.token) {
+      loginSuccess(data.user.email, data.token);
+    } else {
+      showStatus('Google Login fehlgeschlagen', 'error');
+    }
+  } catch (error) {
+    console.error('Google Login Error:', error);
+    showStatus('Login-Fehler. Bitte versuche es später erneut.', 'error');
+  }
 }
 
-function renderList(id, list, emptyText) {
-  const el = $(id);
-  if (!list.length) {
-    el.innerHTML = `<p class="muted">${emptyText}</p>`;
+// Test Login
+$('testLoginBtn').addEventListener('click', async () => {
+  const email = $('testEmail').value.trim();
+  if (!email) {
+    showStatus('Bitte E-Mail eingeben', 'error');
     return;
   }
 
-  el.innerHTML = list.map((job) => {
-    const isFavorite = state[state.user]?.favorites?.[job.id];
-    return `
-      <article class="job">
-        <h3>${job.title}</h3>
-        <small>${job.company} · ${job.location} · <b>${job.match}% Match</b></small>
-        <p>${job.description}</p>
-        <div class="actions">
-          <a href="${job.url}" target="_blank" rel="noreferrer">Job ansehen</a>
-          <button class="${isFavorite ? 'favorite' : ''}" data-id="${job.id}">
-            ${isFavorite ? '★ Entfernen' : '☆ Favorit'}
-          </button>
-        </div>
-      </article>
-    `;
-  }).join('');
+  try {
+    const res = await fetch(`${API_BASE}/test-login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email })
+    });
 
-  el.querySelectorAll('[data-id]').forEach((button) => {
-    button.onclick = () => toggle(button.dataset.id);
-  });
+    const data = await res.json();
+    if (data.token) {
+      loginSuccess(data.user.email, data.token);
+    } else {
+      showStatus('Login fehlgeschlagen', 'error');
+    }
+  } catch (error) {
+    console.error('Login Error:', error);
+    showStatus('Verbindungsfehler', 'error');
+  }
+});
+
+function loginSuccess(email, token) {
+  currentUser = email;
+  currentToken = token;
+  localStorage.setItem('jobMatcherToken', token);
+  localStorage.setItem('jobMatcherEmail', email);
+  render();
+}
+
+// Logout
+$('logoutBtn').addEventListener('click', () => {
+  currentUser = null;
+  currentToken = null;
+  localStorage.removeItem('jobMatcherToken');
+  localStorage.removeItem('jobMatcherEmail');
+  render();
+});
+
+// CV Upload
+$('cvInput').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if (!file || !currentUser) return;
+
+  try {
+    const text = await file.text();
+    const res = await fetch(`${API_BASE}/cv`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${currentToken}`
+      },
+      body: JSON.stringify({ email: currentUser, cvText: text })
+    });
+
+    if (res.ok) {
+      showStatus(`✅ Lebenslauf hochgeladen: ${file.name}`, 'success');
+      updateCvStatus(file.name);
+    }
+  } catch (error) {
+    console.error('CV Upload Error:', error);
+    showStatus('Fehler beim Hochladen', 'error');
+  }
+});
+
+// Delete CV
+$('removeCvBtn').addEventListener('click', async () => {
+  if (!currentUser) return;
+
+  try {
+    const res = await fetch(`${API_BASE}/cv/delete`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${currentToken}`
+      },
+      body: JSON.stringify({ email: currentUser })
+    });
+
+    if (res.ok) {
+      showStatus('✅ Lebenslauf gelöscht', 'success');
+      updateCvStatus(null);
+      renderJobs([]);
+      renderFavorites([]);
+    }
+  } catch (error) {
+    console.error('Delete CV Error:', error);
+    showStatus('Fehler beim Löschen', 'error');
+  }
+});
+
+// Job Search
+$('scanBtn').addEventListener('click', async () => {
+  if (!currentUser) {
+    showStatus('Bitte anmelden', 'error');
+    return;
+  }
+
+  const role = $('jobRoleInput').value.trim() || 'Software Engineer';
+  const country = $('countrySelect').value;
+
+  showStatus('🔄 Suche läuft...', 'info');
+
+  try {
+    const res = await fetch(`${API_BASE}/jobs/search`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${currentToken}`
+      },
+      body: JSON.stringify({ email: currentUser, role, country })
+    });
+
+    const data = await res.json();
+
+    if (data.jobs && data.jobs.length > 0) {
+      showStatus(`✅ ${data.jobs.length} passende Jobs gefunden!`, 'success');
+      renderJobs(data.jobs);
+      $('foundJobsCount').textContent = data.jobs.length;
+    } else {
+      showStatus('❌ Keine passenden Jobs gefunden', 'info');
+      renderJobs([]);
+    }
+  } catch (error) {
+    console.error('Search Error:', error);
+    showStatus('Fehler bei der Jobsuche', 'error');
+  }
+});
+
+function renderJobs(jobs) {
+  const container = $('jobsContainer');
+
+  if (!jobs || jobs.length === 0) {
+    container.innerHTML = '<p class="empty-state">Keine Jobangebote gefunden. Versuche eine neue Suche.</p>';
+    return;
+  }
+
+  container.innerHTML = jobs.map((job) => `
+    <div class="job-card">
+      <div class="job-header">
+        <div class="job-title">
+          <h4>${escapeHtml(job.title)}</h4>
+          <p class="job-company">${escapeHtml(job.company)}</p>
+        </div>
+        <span class="match-badge">${job.match}% Match</span>
+      </div>
+      <div class="job-meta">
+        <span class="meta-item">📍 ${escapeHtml(job.location)}</span>
+        <span class="meta-item">🌍 ${escapeHtml(job.country || 'Global')}</span>
+      </div>
+      <p class="job-description">${escapeHtml(job.description.substring(0, 200))}</p>
+      <div class="job-actions">
+        <a href="${job.url}" target="_blank" rel="noopener noreferrer" class="btn btn-job-link">
+          💼 Job ansehen
+        </a>
+        <button class="btn btn-favorite" data-id="${job.id}" onclick="toggleFavorite('${job.id}')">
+          ☆ Favorit
+        </button>
+      </div>
+    </div>
+  `).join('');
+}
+
+async function toggleFavorite(jobId) {
+  if (!currentUser) return;
+
+  try {
+    const res = await fetch(`${API_BASE}/favorites`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${currentToken}`
+      },
+      body: JSON.stringify({ email: currentUser, jobId })
+    });
+
+    const data = await res.json();
+    if (data.favorites) {
+      $('favoritesCount').textContent = Object.keys(data.favorites).length;
+      renderFavorites(Object.values(data.favorites));
+    }
+  } catch (error) {
+    console.error('Favorite Error:', error);
+  }
+}
+
+function renderFavorites(favorites) {
+  const container = $('favoritesContainer');
+
+  if (!favorites || favorites.length === 0) {
+    container.innerHTML = '<p class="empty-state">Noch keine Favoriten. Markiere Jobs als Favorit!</p>';
+    return;
+  }
+
+  container.innerHTML = favorites.map((job) => `
+    <div class="job-card">
+      <div class="job-header">
+        <div class="job-title">
+          <h4>${escapeHtml(job.title)}</h4>
+          <p class="job-company">${escapeHtml(job.company)}</p>
+        </div>
+        <span class="match-badge">${job.match}% Match</span>
+      </div>
+      <div class="job-meta">
+        <span class="meta-item">📍 ${escapeHtml(job.location)}</span>
+      </div>
+      <div class="job-actions">
+        <a href="${job.url}" target="_blank" rel="noopener noreferrer" class="btn btn-job-link">
+          💼 Job ansehen
+        </a>
+      </div>
+    </div>
+  `).join('');
+}
+
+function updateCvStatus(fileName) {
+  const statusEl = $('cvStatusText');
+  const removeBtn = $('removeCvBtn');
+
+  if (fileName) {
+    statusEl.textContent = `✅ ${fileName} hochgeladen`;
+    removeBtn.classList.remove('hidden');
+  } else {
+    statusEl.textContent = 'Noch kein Lebenslauf hochgeladen';
+    removeBtn.classList.add('hidden');
+  }
+}
+
+function showStatus(message, type = 'info') {
+  const el = $('statusMessage');
+  el.textContent = message;
+  el.className = `status-message status-${type}`;
 }
 
 function render() {
-  const logged = !!state.user;
-  $('login').classList.toggle('hidden', logged);
-  $('app').classList.toggle('hidden', !logged);
-  $('logout').classList.toggle('hidden', !logged);
+  const loginSection = $('loginSection');
+  const appSection = $('appSection');
+  const logoutBtn = $('logoutBtn');
+  const userEmail = $('userEmail');
 
-  if (!logged) return;
-
-  const b = bucket();
-  $('cvStatus').textContent = b.cv ? `${b.cv.name} gespeichert (nur in diesem Browser)` : 'Noch kein Lebenslauf';
-
-  renderList('results', b.results || [], 'Keine passenden Angebote gefunden.');
-  renderList('favorites', Object.values(b.favorites || {}), 'Noch keine Favoriten.');
+  if (currentUser) {
+    loginSection.classList.add('hidden');
+    appSection.classList.remove('hidden');
+    logoutBtn.classList.remove('hidden');
+    userEmail.textContent = currentUser;
+  } else {
+    loginSection.classList.remove('hidden');
+    appSection.classList.add('hidden');
+    logoutBtn.classList.add('hidden');
+  }
 }
 
-function toggle(id) {
-  const b = bucket();
-  if (!b) return;
-  const resultJob = (b.results || []).find((item) => item.id === id);
-  const favJob = Object.values(b.favorites || {}).find((item) => item.id === id);
-  const job = resultJob || favJob;
-  if (!job) return;
-
-  if (b.favorites[id]) delete b.favorites[id];
-  else b.favorites[id] = job;
-
-  save();
-  render();
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
 }
 
-$('loginButton').onclick = () => {
-  const email = $('email').value.trim();
-  if (!email) return alert('Bitte E-Mail eingeben.');
-  state.user = email;
-  bucket();
-  save();
-  render();
-};
+// Restore session on load
+window.addEventListener('DOMContentLoaded', () => {
+  const token = localStorage.getItem('jobMatcherToken');
+  const email = localStorage.getItem('jobMatcherEmail');
 
-$('logout').onclick = () => {
-  delete state.user;
-  save();
-  render();
-};
+  if (token && email) {
+    currentToken = token;
+    currentUser = email;
+    render();
+  }
 
-$('cv').onchange = async (event) => {
-  const file = event.target.files[0];
-  if (!file) return;
-  const text = await file.text();
-  const b = bucket();
-  b.cv = { name: file.name, text };
-  save();
-  render();
-  $('status').textContent = 'Lebenslauf lokal gespeichert.';
-};
-
-$('removeCv').onclick = () => {
-  const b = bucket();
-  if (!b) return;
-  b.cv = null;
-  save();
-  render();
-  $('status').textContent = 'Lebenslauf gelöscht.';
-};
-
-$('scan').onclick = () => {
-  const b = bucket();
-  if (!b || !b.cv) return $('status').textContent = 'Bitte zuerst einen Lebenslauf hochladen.';
-
-  const role = $('role').value || 'Software Engineer';
-  const country = $('country').value;
-
-  b.results = demo.map((item, index) => ({
-    id: `${country}-${index}`,
-    title: `${item[0]} – ${role}`,
-    company: item[1],
-    location: `${item[2]}, ${country}`,
-    url: item[3],
-    description: item[4],
-    match: score(b.cv.text, `${item.join(' ')} ${role}`)
-  })).filter((job) => job.match >= 90);
-
-  save();
-  render();
-  $('status').textContent = `${b.results.length} Angebote mit mindestens 90% Match gefunden.`;
-};
-
-render();
+  initGoogleLogin();
+});
