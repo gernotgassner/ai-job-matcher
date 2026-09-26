@@ -5,8 +5,8 @@ const users = new Map();
 
 function verifyToken(token) {
   try {
-    return jwt.verify(token, process.env.JWT_SECRET || 'dev-secret');
-  } catch {
+    return jwt.verify(token, process.env.JWT_SECRET || 'dev-secret-key-change-in-production');
+  } catch (error) {
     return null;
   }
 }
@@ -18,7 +18,7 @@ function extractKeywords(text = '') {
     'the', 'and', 'for', 'with', 'that', 'this', 'from', 'into', 'your', 'have',
     'will', 'over', 'about', 'their', 'them', 'what', 'when', 'where', 'there',
     'years', 'year', 'work', 'team', 'using', 'skills', 'also', 'more', 'most',
-    'such', 'being', 'role', 'jobs', 'job', 'developer', 'engineer', 'product'
+    'such', 'being', 'role', 'jobs', 'job', 'developer', 'engineer', 'product', 'design'
   ]);
   return words.filter(w => w.length > 2 && !stopWords.has(w));
 }
@@ -27,8 +27,10 @@ function calculateMatchScore(cvText, jobText) {
   const cvKeywords = new Set(extractKeywords(cvText));
   const jobKeywords = new Set(extractKeywords(jobText));
 
+  if (jobKeywords.size === 0) return 0;
+
   const matches = [...jobKeywords].filter(kw => cvKeywords.has(kw)).length;
-  const baseScore = (matches / Math.max(1, jobKeywords.size)) * 100;
+  const baseScore = (matches / jobKeywords.size) * 100;
   const bonus = [...cvKeywords].filter(kw => kw.length > 5 && jobKeywords.has(kw)).length * 2;
 
   return Math.min(100, Math.round(baseScore + bonus));
@@ -43,7 +45,8 @@ export default async function handler(req, res) {
     return res.status(200).end();
   }
 
-  const token = req.headers.authorization?.split(' ')[1];
+  const authHeader = req.headers.authorization || '';
+  const token = authHeader.split(' ')[1];
   const decoded = verifyToken(token);
 
   if (!decoded) {
@@ -53,7 +56,7 @@ export default async function handler(req, res) {
   const { email, role, country } = req.body;
 
   if (!email || !role || !country) {
-    return res.status(400).json({ error: 'Missing fields' });
+    return res.status(400).json({ error: 'Missing email, role, or country' });
   }
 
   if (!users.has(email)) {
@@ -80,7 +83,8 @@ export default async function handler(req, res) {
       headers: {
         'x-rapidapi-key': process.env.JSEARCH_API_KEY,
         'x-rapidapi-host': 'jsearch.p.rapidapi.com'
-      }
+      },
+      timeout: 10000
     });
 
     let jobs = (response.data.data || []).slice(0, 12).map((job, index) => {
@@ -99,10 +103,10 @@ export default async function handler(req, res) {
       };
     });
 
-    // Filter for 90%+ matches
+    // Filter für 90%+ matches
     jobs = jobs.filter(j => j.match >= 90).sort((a, b) => b.match - a.match);
 
-    // Save to user session
+    // Speichere in User-Session
     if (!users.has(email)) {
       users.set(email, { cvText, favorites: {}, lastScan: [] });
     }
@@ -110,9 +114,9 @@ export default async function handler(req, res) {
 
     res.json({ jobs });
   } catch (error) {
-    console.error('JSearch API Error:', error.response?.data || error.message);
+    console.error('JSearch API Error:', error.message);
 
-    // Fallback demo jobs
+    // Fallback Demo-Jobs
     const fallbackJobs = [
       {
         id: 'fallback-1',
@@ -121,7 +125,7 @@ export default async function handler(req, res) {
         location: 'Berlin, Germany',
         country: 'Germany',
         url: 'https://example.com/jobs/1',
-        description: `Wir suchen einen ${role}. Arbeite mit modernen Technologien in einem innovativen Team.`,
+        description: `Wir suchen einen erfahrenen ${role}. Remote-Möglichkeit. Attraktive Konditionen.`,
         match: 94
       },
       {
@@ -131,7 +135,7 @@ export default async function handler(req, res) {
         location: 'Vienna, Austria',
         country: 'Austria',
         url: 'https://example.com/jobs/2',
-        description: `Erfahrener ${role} gesucht. Remote-Möglichkeit. Attraktive Konditionen.`,
+        description: `Erfahrener ${role} gesucht. Moderne Tech Stack. Innovatives Team.`,
         match: 91
       }
     ];
