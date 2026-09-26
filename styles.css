@@ -1,0 +1,171 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: #0b1220;
+  color: #eef2ff;
+  font: 16px system-ui, sans-serif;
+  line-height: 1.5;
+}
+
+.container {
+  max-width: 1050px;
+  margin: auto;
+  padding: 32px 18px 60px;
+}
+
+header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid #263247;
+  padding-bottom: 24px;
+  margin-bottom: 24px;
+}
+
+small,
+.muted {
+  color: #94a3b8;
+}
+
+h1 {
+  font-size: clamp(2rem, 5vw, 3.8rem);
+  line-height: 1.05;
+  margin: 8px 0;
+}
+
+h2 {
+  margin-top: 0;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+}
+
+.card {
+  background: #121c2d;
+  border: 1px solid #263247;
+  border-radius: 16px;
+  padding: 22px;
+  margin-bottom: 18px;
+}
+
+.narrow {
+  max-width: 520px;
+  margin: 40px auto;
+}
+
+label {
+  display: block;
+  color: #cbd5e1;
+  margin: 14px 0;
+}
+
+input,
+select,
+button {
+  font: inherit;
+  border-radius: 10px;
+  padding: 11px 13px;
+  width: 100%;
+  margin-top: 7px;
+}
+
+input,
+select {
+  background: #0d1626;
+  color: #fff;
+  border: 1px solid #334155;
+}
+
+button {
+  background: #2563eb;
+  color: #fff;
+  border: 0;
+  cursor: pointer;
+  font-weight: 650;
+}
+
+button:hover {
+  filter: brightness(1.12);
+}
+
+button.secondary {
+  width: auto;
+  background: transparent;
+  border: 1px solid #475569;
+}
+
+.danger {
+  background: #7f1d1d;
+}
+
+.upload {
+  border: 2px dashed #3b82f6;
+  padding: 28px;
+  text-align: center;
+  border-radius: 12px;
+  cursor: pointer;
+}
+
+.upload input {
+  display: none;
+}
+
+.job {
+  border: 1px solid #334155;
+  border-radius: 12px;
+  padding: 16px;
+  margin: 12px 0;
+}
+
+.job h3 {
+  margin: 0;
+}
+
+.job small {
+  display: block;
+}
+
+.actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.actions button,
+.actions a {
+  width: auto;
+  text-decoration: none;
+}
+
+.actions a {
+  background: #1d4ed8;
+  color: #fff;
+  padding: 10px 13px;
+  border-radius: 10px;
+}
+
+.favorite {
+  background: #92400e;
+}
+
+.hidden {
+  display: none !important;
+}
+
+@media (max-width: 700px) {
+  .grid {
+    grid-template-columns: 1fr;
+  }
+
+  header {
+    align-items: flex-start;
+    gap: 15px;
+    flex-direction: column;
+  }
+}
