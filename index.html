@@ -1,78 +1,149 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="de">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>AI Job Matcher</title>
-    <meta name="description" content="KI-gestützte Job-Matcher WebApp mit Lebenslaufvergleich" />
-    <link rel="stylesheet" href="styles.css" />
-  </head>
-  <body>
-    <main class="container">
-      <header>
-        <div>
-          <small>AI JOB MATCHER</small>
-          <h1>Jobs finden, die zu dir passen.</h1>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Job Matcher – Finde deinen Traumjob</title>
+  <meta name="description" content="KI-gestützte Jobsuche mit Lebenslaufvergleich" />
+  <link rel="stylesheet" href="styles.css" />
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <header class="header">
+      <div class="header-content">
+        <h1 class="logo">💼 AI Job Matcher</h1>
+        <p class="tagline">Dein intelligenter Jobmatch-Assistant</p>
+      </div>
+      <button id="logoutBtn" class="btn-logout hidden">Abmelden</button>
+    </header>
+
+    <!-- Login Section -->
+    <section id="loginSection" class="section login-section">
+      <div class="login-card">
+        <h2>Willkommen zurück! 👋</h2>
+        <p>Finde Jobangebote, die perfekt zu dir passen.</p>
+        
+        <div id="googleButtonContainer" class="google-button-container"></div>
+        
+        <div class="divider">oder</div>
+        
+        <div class="form-group">
+          <label for="testEmail">Test-Login (E-Mail)</label>
+          <input 
+            id="testEmail" 
+            type="email" 
+            placeholder="deine@email.com" 
+            value="demo.user@gmail.com"
+          />
         </div>
-        <button id="logout" class="secondary hidden">Abmelden</button>
-      </header>
+        <button id="testLoginBtn" class="btn btn-primary">Testlogin</button>
+        
+        <p class="info-text">
+          ℹ️ Das ist eine Demo. Alle Daten bleiben in dieser Session.
+        </p>
+      </div>
+    </section>
 
-      <section id="login" class="card narrow">
-        <h2>Willkommen</h2>
-        <p>Demo-Testlogin für die erste Version.</p>
-        <input id="email" type="email" value="demo.user@gmail.com" placeholder="E-Mail" />
-        <button id="loginButton">Mit Google anmelden (Testlogin)</button>
-      </section>
-
-      <section id="app" class="hidden">
-        <div class="grid">
-          <section class="card">
-            <h2>Lebenslauf</h2>
-            <label class="upload">
-              📄 Lebenslauf hochladen
-              <input id="cv" type="file" accept=".pdf,.doc,.docx,.txt" />
-            </label>
-            <p id="cvStatus">Noch kein Lebenslauf</p>
-            <button id="removeCv" class="danger">Lebenslauf löschen</button>
-          </section>
-
-          <section class="card">
-            <h2>Jobs suchen</h2>
-            <label>
-              Land
-              <select id="country">
-                <option>Deutschland</option>
-                <option>Österreich</option>
-                <option>Schweiz</option>
-                <option>Niederlande</option>
-                <option>USA</option>
-              </select>
-            </label>
-            <label>
-              Berufsbezeichnung
-              <input id="role" placeholder="z. B. Frontend Entwickler" />
-            </label>
-            <button id="scan">Jobs durchsuchen</button>
-            <p id="status"></p>
-          </section>
+    <!-- Main App Section -->
+    <section id="appSection" class="section hidden">
+      <div class="dashboard">
+        <!-- Left Column: CV Upload -->
+        <div class="card cv-card">
+          <div class="card-header">
+            <h3>📄 Dein Lebenslauf</h3>
+          </div>
+          <label class="upload-box">
+            <input id="cvInput" type="file" accept=".pdf,.doc,.docx,.txt" />
+            <div class="upload-content">
+              <span class="upload-icon">📤</span>
+              <span class="upload-text">Klick zum Hochladen</span>
+              <span class="upload-hint">PDF, DOCX oder TXT</span>
+            </div>
+          </label>
+          
+          <div class="cv-status">
+            <p id="cvStatusText">Noch kein Lebenslauf hochgeladen</p>
+            <button id="removeCvBtn" class="btn btn-danger small hidden">Lebenslauf löschen</button>
+          </div>
         </div>
 
-        <section class="card">
-          <h2>Passende Angebote (mindestens 90%)</h2>
-          <div id="results">
-            <p class="muted">Lade einen Lebenslauf hoch und starte einen Scan.</p>
+        <!-- Middle Column: Search Config -->
+        <div class="card search-card">
+          <div class="card-header">
+            <h3>🔍 Job-Suche konfigurieren</h3>
           </div>
-        </section>
-
-        <section class="card">
-          <h2>Favoriten</h2>
-          <div id="favorites">
-            <p class="muted">Noch keine Favoriten.</p>
+          
+          <div class="form-group">
+            <label for="countrySelect">Land</label>
+            <select id="countrySelect">
+              <option value="Germany">🇩🇪 Deutschland</option>
+              <option value="Austria">🇦🇹 Österreich</option>
+              <option value="Switzerland">🇨🇭 Schweiz</option>
+              <option value="Netherlands">🇳🇱 Niederlande</option>
+              <option value="Sweden">🇸🇪 Schweden</option>
+              <option value="United States">🇺🇸 USA</option>
+            </select>
           </div>
-        </section>
-      </section>
-    </main>
 
-    <script src="app.js"></script>
-  </body>
+          <div class="form-group">
+            <label for="jobRoleInput">Berufsbezeichnung</label>
+            <input 
+              id="jobRoleInput" 
+              type="text" 
+              placeholder="z. B. Frontend Developer, Data Scientist" 
+            />
+          </div>
+
+          <button id="scanBtn" class="btn btn-primary full">🚀 Jobs durchsuchen</button>
+          <p id="statusMessage" class="status-message"></p>
+        </div>
+
+        <!-- Right Column: User Info -->
+        <div class="card user-card">
+          <div class="card-header">
+            <h3>👤 Profil</h3>
+          </div>
+          <div class="user-info">
+            <p><strong>Angemeldet als:</strong></p>
+            <p id="userEmail" class="email-display">-</p>
+          </div>
+          <div class="user-stats">
+            <div class="stat">
+              <span class="stat-label">Gefundene Jobs</span>
+              <span id="foundJobsCount" class="stat-value">0</span>
+            </div>
+            <div class="stat">
+              <span class="stat-label">Favoriten</span>
+              <span id="favoritesCount" class="stat-value">0</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Results Section -->
+      <div class="card results-card">
+        <div class="card-header">
+          <h3>✨ Passende Jobangebote (90%+ Match)</h3>
+        </div>
+        <div id="jobsContainer" class="jobs-container">
+          <p class="empty-state">Lade einen Lebenslauf hoch und starte eine Suche</p>
+        </div>
+      </div>
+
+      <!-- Favorites Section -->
+      <div class="card favorites-card">
+        <div class="card-header">
+          <h3>⭐ Deine Favoriten</h3>
+        </div>
+        <div id="favoritesContainer" class="jobs-container">
+          <p class="empty-state">Noch keine Favoriten gespeichert</p>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script src="app.js"></script>
+</body>
 </html>
