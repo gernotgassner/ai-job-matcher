@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "dev": "node api/server.js",
+    "dev": "node --watch api/server.js",
     "start": "node api/server.js"
   },
   "dependencies": {
@@ -13,6 +13,5 @@
     "express": "^4.19.2",
     "google-auth-library": "^9.0.0",
     "jsonwebtoken": "^9.0.2"
-  },
-  "devDependencies": {}
+  }
 }
