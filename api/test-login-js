@@ -31,7 +31,7 @@ export default function handler(req, res) {
 
   const token = jwt.sign(
     { email },
-    process.env.JWT_SECRET || 'dev-secret',
+    process.env.JWT_SECRET || 'dev-secret-key-change-in-production',
     { expiresIn: '7d' }
   );
 
