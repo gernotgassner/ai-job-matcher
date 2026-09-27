@@ -201,7 +201,11 @@ $('scanBtn').addEventListener('click', async () => {
 
     currentJobs = data.jobs || [];
 
-    if (currentJobs.length > 0) {
+    if (data.fallback) {
+      showStatus(`⚠️ Demo-Jobs (externe Jobsuche fehlgeschlagen): ${data.reason || ''}`, 'error');
+      renderJobs(currentJobs);
+      $('foundJobsCount').textContent = currentJobs.length;
+    } else if (currentJobs.length > 0) {
       const suffix = data.aiPowered ? ' (KI-bewertet)' : '';
       showStatus(`✅ ${currentJobs.length} passende Jobs gefunden!${suffix}`, 'success');
       renderJobs(currentJobs);

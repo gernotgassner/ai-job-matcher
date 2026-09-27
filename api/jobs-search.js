@@ -134,6 +134,10 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Ungültiges Land. Erlaubt: Deutschland, Österreich, Schweiz' });
   }
 
+  if (!process.env.JSEARCH_API_KEY) {
+    console.error('JSEARCH_API_KEY is not set in this deployment\'s environment.');
+  }
+
   try {
     const query = roleDescription
       ? `${role} ${roleDescription}`.slice(0, 200) + ` jobs in ${country}`
@@ -194,10 +198,23 @@ export default async function handler(req, res) {
 
     res.json({ jobs, aiPowered: !!aiResults });
   } catch (error) {
-    console.error('JSearch API Error:', error.message);
+    const status = error.response?.status;
+    const body = error.response?.data;
+    console.error('JSearch API Error:', status, JSON.stringify(body) || error.message);
+
+    let reason = 'Unbekannter Fehler bei der externen Jobsuche.';
+    if (!process.env.JSEARCH_API_KEY) {
+      reason = 'JSEARCH_API_KEY ist in dieser Umgebung nicht gesetzt.';
+    } else if (status === 401 || status === 403) {
+      reason = 'RapidAPI hat den Zugriff abgelehnt (401/403) - meist fehlt ein aktives Abo der JSearch-API auf rapidapi.com/hub, oder der Key ist ungültig.';
+    } else if (status === 429) {
+      reason = 'RapidAPI-Kontingent aufgebraucht (429 Too Many Requests).';
+    } else if (error.code === 'ECONNABORTED') {
+      reason = 'Zeitüberschreitung bei der Anfrage an JSearch.';
+    }
 
     // Fallback Demo-Jobs, falls die externe Jobsuche fehlschlägt
-    // (z. B. fehlender/ungültiger JSEARCH_API_KEY)
+    // (z. B. fehlender/ungültiger JSEARCH_API_KEY, fehlendes RapidAPI-Abo)
     const fallbackJobs = [
       {
         id: 'fallback-1',
@@ -223,6 +240,6 @@ export default async function handler(req, res) {
       }
     ];
 
-    res.json({ jobs: fallbackJobs, aiPowered: false, fallback: true });
+    res.json({ jobs: fallbackJobs, aiPowered: false, fallback: true, reason });
   }
 }

@@ -53,6 +53,9 @@ export default async function handler(req, res) {
     });
   } catch (error) {
     console.error('Google Login Error:', error.message);
+    if (!process.env.GOOGLE_CLIENT_ID) {
+      console.error('GOOGLE_CLIENT_ID is not set in this deployment\'s environment - token audience check will always fail.');
+    }
     res.status(401).json({ error: 'Authentication failed' });
   }
 }
