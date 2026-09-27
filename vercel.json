@@ -5,10 +5,6 @@
   "functions": {
     "api/**/*.js": {
       "memory": 1024,
-      "maxDuration": 10
-    },
-    "api/jobs-search.js": {
-      "memory": 1024,
       "maxDuration": 30
     }
   }
