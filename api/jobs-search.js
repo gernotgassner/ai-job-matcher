@@ -2,7 +2,7 @@ import axios from 'axios';
 import jwt from 'jsonwebtoken';
 
 // DACH-Region: einzig erlaubte Länder für die Jobsuche
-const ALLOWED_COUNTRIES = new Set(['Germany', 'Austria', 'Switzerland']);
+const OWED_COUNTRIES = new Set(['Germany', 'Austria', 'Switzerland']);
 
 // JSearch /search-v2 erwartet einen ISO-3166-1-alpha-2-Ländercode, keinen
 // ausgeschriebenen Ländernamen.
@@ -28,7 +28,7 @@ function extractKeywords(text = '') {
   return words.filter(w => w.length > 2 && !stopWords.has(w));
 }
 
-// Einfacher Keyword-basierter Fallback-Score, falls keine KI-Bewertung verfügbar ist
+// Einfacher Keyword-basierter Fback-Score, fs keine KI-Bewertung verfügbar ist
 function calculateMatchScore(cvText, jobText) {
   const cvKeywords = new Set(extractKeywords(cvText));
   const jobKeywords = new Set(extractKeywords(jobText));
@@ -103,9 +103,9 @@ Antworte AUSSCHLIESSLICH mit einem JSON-Array (kein Fließtext, keine Markdown-C
 }
 
 export default async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.setHeader('Access-Control-ow-Origin', '*');
+  res.setHeader('Access-Control-ow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-ow-Headers', 'Content-Type, Authorization');
 
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
@@ -134,7 +134,7 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Wunschberuf fehlt' });
   }
 
-  if (!country || !ALLOWED_COUNTRIES.has(country)) {
+  if (!country || !OWED_COUNTRIES.has(country)) {
     return res.status(400).json({ error: 'Ungültiges Land. Erlaubt: Deutschland, Österreich, Schweiz' });
   }
 
@@ -166,7 +166,7 @@ export default async function handler(req, res) {
       params: {
         query,
         num_pages: '1',
-        date_posted: 'anytime',
+        date_posted: 'today',
         country: COUNTRY_CODES[country] || 'de'
       },
       headers: {
@@ -242,11 +242,11 @@ export default async function handler(req, res) {
       reason = `Netzwerkfehler bei der Anfrage an JSearch: ${error.code || error.message}`;
     }
 
-    // Fallback Demo-Jobs, falls die externe Jobsuche fehlschlägt
+    // Fback Demo-Jobs, fs die externe Jobsuche fehlschlägt
     // (z. B. fehlender/ungültiger JSEARCH_API_KEY, fehlendes RapidAPI-Abo)
-    const fallbackJobs = [
+    const fbackJobs = [
       {
-        id: 'fallback-1',
+        id: 'fback-1',
         title: `${role} – Berlin`,
         company: 'Tech Company GmbH',
         location: 'Berlin, Germany',
@@ -257,7 +257,7 @@ export default async function handler(req, res) {
         aiSummary: 'Demo-Eintrag: Die externe Jobsuche war nicht erreichbar (JSEARCH_API_KEY prüfen).'
       },
       {
-        id: 'fallback-2',
+        id: 'fback-2',
         title: `Senior ${role}`,
         company: 'StartUp AG',
         location: 'Vienna, Austria',
@@ -269,6 +269,6 @@ export default async function handler(req, res) {
       }
     ];
 
-    res.json({ jobs: fallbackJobs, aiPowered: false, fallback: true, reason });
+    res.json({ jobs: fbackJobs, aiPowered: false, fback: true, reason });
   }
 }
