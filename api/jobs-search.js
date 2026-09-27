@@ -202,15 +202,24 @@ export default async function handler(req, res) {
     const body = error.response?.data;
     console.error('JSearch API Error:', status, JSON.stringify(body) || error.message);
 
-    let reason = 'Unbekannter Fehler bei der externen Jobsuche.';
+    const bodyMessage = typeof body === 'string' ? body : (body?.message || body?.error || (body ? JSON.stringify(body) : null));
+
+    let reason;
     if (!process.env.JSEARCH_API_KEY) {
       reason = 'JSEARCH_API_KEY ist in dieser Umgebung nicht gesetzt.';
     } else if (status === 401 || status === 403) {
-      reason = 'RapidAPI hat den Zugriff abgelehnt (401/403) - meist fehlt ein aktives Abo der JSearch-API auf rapidapi.com/hub, oder der Key ist ungültig.';
+      reason = `RapidAPI hat den Zugriff abgelehnt (HTTP ${status}) - meist fehlt ein aktives Abo der JSearch-API auf rapidapi.com/hub, oder der Key ist ungültig.${bodyMessage ? ' Antwort: ' + bodyMessage : ''}`;
     } else if (status === 429) {
-      reason = 'RapidAPI-Kontingent aufgebraucht (429 Too Many Requests).';
+      reason = `RapidAPI-Kontingent aufgebraucht (429 Too Many Requests).${bodyMessage ? ' Antwort: ' + bodyMessage : ''}`;
     } else if (error.code === 'ECONNABORTED') {
       reason = 'Zeitüberschreitung bei der Anfrage an JSearch.';
+    } else if (status) {
+      // Beliebiger anderer HTTP-Statuscode - Statuscode und Antworttext direkt
+      // anzeigen, statt einen pauschalen "unbekannter Fehler" zu melden.
+      reason = `RapidAPI-Fehler HTTP ${status}${bodyMessage ? ': ' + bodyMessage : ''}`;
+    } else {
+      // Kein HTTP-Response erhalten -> Netzwerk-/Verbindungsfehler
+      reason = `Netzwerkfehler bei der Anfrage an JSearch: ${error.code || error.message}`;
     }
 
     // Fallback Demo-Jobs, falls die externe Jobsuche fehlschlägt
