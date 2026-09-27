@@ -166,7 +166,7 @@ export default async function handler(req, res) {
       params: {
         query,
         num_pages: '1',
-        date_posted: 'today',
+        date_posted: 'anytime',
         country: COUNTRY_CODES[country] || 'de'
       },
       headers: {
