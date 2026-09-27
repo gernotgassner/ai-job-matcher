@@ -1,6 +1,5 @@
 {
   "buildCommand": "npm install",
-  "outputDirectory": "public",
   "installCommand": "npm install",
   "functions": {
     "api/**/*.js": {
