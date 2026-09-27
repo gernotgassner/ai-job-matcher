@@ -4,6 +4,10 @@ import jwt from 'jsonwebtoken';
 // DACH-Region: einzig erlaubte Länder für die Jobsuche
 const ALLOWED_COUNTRIES = new Set(['Germany', 'Austria', 'Switzerland']);
 
+// JSearch /search-v2 erwartet einen ISO-3166-1-alpha-2-Ländercode, keinen
+// ausgeschriebenen Ländernamen.
+const COUNTRY_CODES = { Germany: 'de', Austria: 'at', Switzerland: 'ch' };
+
 function verifyToken(token) {
   try {
     return jwt.verify(token, process.env.JWT_SECRET || 'dev-secret-key-change-in-production');
@@ -149,17 +153,21 @@ export default async function handler(req, res) {
   }
 
   try {
+    // RapidAPI hat den alten "/search"-Endpunkt auf "/search-v2" migriert
+    // (siehe Fehlerhinweis von RapidAPI selbst: "Endpoint '/search' does not
+    // exist", Beispiel-curl zeigt "/search-v2"). v2 nutzt außerdem einen
+    // ISO-3166-alpha-2 "country"-Parameter statt des Ländernamens im
+    // Freitext, und kein "page"/"sort" mehr (Paginierung über "cursor").
     const query = roleDescription
-      ? `${role} ${roleDescription}`.slice(0, 200) + ` jobs in ${country}`
-      : `${role} jobs in ${country}`;
+      ? `${role} ${roleDescription}`.slice(0, 200)
+      : `${role} jobs`;
 
-    const response = await axios.get('https://jsearch.p.rapidapi.com/search', {
+    const response = await axios.get('https://jsearch.p.rapidapi.com/search-v2', {
       params: {
         query,
-        page: '1',
         num_pages: '1',
         date_posted: 'anytime',
-        sort: 'relevance'
+        country: COUNTRY_CODES[country] || 'de'
       },
       headers: {
         'x-rapidapi-key': rapidApiKey,
