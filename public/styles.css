@@ -478,6 +478,30 @@ textarea:focus {
   line-height: 1.5;
 }
 
+.field-hint {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-top: 6px;
+}
+
+.ai-summary {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  background: var(--bg-tertiary);
+  border-left: 3px solid var(--accent);
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin: 12px 0;
+  font-size: 0.88rem;
+  color: var(--text-primary);
+  line-height: 1.5;
+}
+
+.ai-summary .ai-icon {
+  flex-shrink: 0;
+}
+
 .job-actions {
   display: flex;
   gap: 10px;

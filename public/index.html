@@ -81,19 +81,26 @@
               <option value="Germany">🇩🇪 Deutschland</option>
               <option value="Austria">🇦🇹 Österreich</option>
               <option value="Switzerland">🇨🇭 Schweiz</option>
-              <option value="Netherlands">🇳🇱 Niederlande</option>
-              <option value="Sweden">🇸🇪 Schweden</option>
-              <option value="United States">🇺🇸 USA</option>
             </select>
           </div>
 
           <div class="form-group">
-            <label for="jobRoleInput">Berufsbezeichnung</label>
+            <label for="jobRoleInput">Wunschberuf</label>
             <input 
               id="jobRoleInput" 
               type="text" 
               placeholder="z. B. Frontend Developer, Data Scientist" 
             />
+          </div>
+
+          <div class="form-group">
+            <label for="jobRoleDescriptionInput">Kurzbeschrieb (optional)</label>
+            <textarea
+              id="jobRoleDescriptionInput"
+              rows="3"
+              placeholder="z. B. Fokus auf React &amp; TypeScript, gerne mit Remote-Anteil, erste Führungserfahrung von Vorteil ..."
+            ></textarea>
+            <p class="field-hint">Wird von der KI bei der Job-Empfehlung berücksichtigt.</p>
           </div>
 
           <button id="scanBtn" class="btn btn-primary full">🚀 Jobs durchsuchen</button>
@@ -125,7 +132,7 @@
       <!-- Results Section -->
       <div class="card results-card">
         <div class="card-header">
-          <h3>✨ Passende Jobangebote (90%+ Match)</h3>
+          <h3>✨ Passende Jobangebote</h3>
         </div>
         <div id="jobsContainer" class="jobs-container">
           <p class="empty-state">Lade einen Lebenslauf hoch und starte eine Suche</p>

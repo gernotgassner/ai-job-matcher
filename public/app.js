@@ -2,8 +2,27 @@ const API_BASE = '/api';
 
 let currentUser = null;
 let currentToken = null;
+let currentCvText = null;
+let currentCvFileName = null;
+let currentJobs = [];
+let favorites = {};
 
 const $ = (id) => document.getElementById(id);
+
+// CV, Favoriten etc. leben ausschließlich im localStorage des Browsers
+// (siehe README) - die serverseitigen API-Routen sind zustandslose
+// Vercel-Functions ohne gemeinsamen Speicher zwischen Aufrufen.
+function loadFavoritesFromStorage() {
+  try {
+    return JSON.parse(localStorage.getItem('jobMatcherFavorites') || '{}');
+  } catch {
+    return {};
+  }
+}
+
+function saveFavoritesToStorage() {
+  localStorage.setItem('jobMatcherFavorites', JSON.stringify(favorites));
+}
 
 // Google Login Initialisierung
 function initGoogleLogin() {
@@ -94,19 +113,27 @@ $('cvInput').addEventListener('change', async (e) => {
 
   try {
     const text = await file.text();
-    const res = await fetch(`${API_BASE}/cv`, {
+
+    // Lebenslauf lokal speichern - das ist die Quelle der Wahrheit für die
+    // Jobsuche, da Vercel-Functions keinen Speicher über Requests hinweg teilen.
+    currentCvText = text;
+    currentCvFileName = file.name;
+    localStorage.setItem('jobMatcherCvText', text);
+    localStorage.setItem('jobMatcherCvFileName', file.name);
+
+    showStatus(`✅ Lebenslauf hochgeladen: ${file.name}`, 'success');
+    updateCvStatus(file.name);
+
+    // Best-effort serverseitiges Speichern (z. B. für zukünftiges Logging);
+    // die App funktioniert unabhängig vom Ergebnis dieses Calls.
+    fetch(`${API_BASE}/cv`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${currentToken}`
       },
       body: JSON.stringify({ email: currentUser, cvText: text })
-    });
-
-    if (res.ok) {
-      showStatus(`✅ Lebenslauf hochgeladen: ${file.name}`, 'success');
-      updateCvStatus(file.name);
-    }
+    }).catch(() => {});
   } catch (error) {
     console.error('CV Upload Error:', error);
     showStatus('Fehler beim Hochladen', 'error');
@@ -114,29 +141,19 @@ $('cvInput').addEventListener('change', async (e) => {
 });
 
 // Delete CV
-$('removeCvBtn').addEventListener('click', async () => {
+$('removeCvBtn').addEventListener('click', () => {
   if (!currentUser) return;
 
-  try {
-    const res = await fetch(`${API_BASE}/cv-delete`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${currentToken}`
-      },
-      body: JSON.stringify({ email: currentUser })
-    });
+  currentCvText = null;
+  currentCvFileName = null;
+  localStorage.removeItem('jobMatcherCvText');
+  localStorage.removeItem('jobMatcherCvFileName');
 
-    if (res.ok) {
-      showStatus('✅ Lebenslauf gelöscht', 'success');
-      updateCvStatus(null);
-      renderJobs([]);
-      renderFavorites([]);
-    }
-  } catch (error) {
-    console.error('Delete CV Error:', error);
-    showStatus('Fehler beim Löschen', 'error');
-  }
+  showStatus('✅ Lebenslauf gelöscht', 'success');
+  updateCvStatus(null);
+  currentJobs = [];
+  renderJobs([]);
+  $('foundJobsCount').textContent = '0';
 });
 
 // Job Search
@@ -146,7 +163,13 @@ $('scanBtn').addEventListener('click', async () => {
     return;
   }
 
+  if (!currentCvText) {
+    showStatus('❌ Bitte zuerst einen Lebenslauf hochladen', 'error');
+    return;
+  }
+
   const role = $('jobRoleInput').value.trim() || 'Software Engineer';
+  const roleDescription = $('jobRoleDescriptionInput').value.trim();
   const country = $('countrySelect').value;
 
   showStatus('🔄 Suche läuft...', 'info');
@@ -158,18 +181,35 @@ $('scanBtn').addEventListener('click', async () => {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${currentToken}`
       },
-      body: JSON.stringify({ email: currentUser, role, country })
+      body: JSON.stringify({
+        email: currentUser,
+        cvText: currentCvText,
+        role,
+        roleDescription,
+        country
+      })
     });
 
     const data = await res.json();
 
-    if (data.jobs && data.jobs.length > 0) {
-      showStatus(`✅ ${data.jobs.length} passende Jobs gefunden!`, 'success');
-      renderJobs(data.jobs);
-      $('foundJobsCount').textContent = data.jobs.length;
+    if (!res.ok) {
+      showStatus(`❌ ${data.error || 'Fehler bei der Jobsuche'}`, 'error');
+      currentJobs = [];
+      renderJobs([]);
+      return;
+    }
+
+    currentJobs = data.jobs || [];
+
+    if (currentJobs.length > 0) {
+      const suffix = data.aiPowered ? ' (KI-bewertet)' : '';
+      showStatus(`✅ ${currentJobs.length} passende Jobs gefunden!${suffix}`, 'success');
+      renderJobs(currentJobs);
+      $('foundJobsCount').textContent = currentJobs.length;
     } else {
       showStatus('❌ Keine passenden Jobs gefunden', 'info');
       renderJobs([]);
+      $('foundJobsCount').textContent = '0';
     }
   } catch (error) {
     console.error('Search Error:', error);
@@ -199,39 +239,39 @@ function renderJobs(jobs) {
         <span class="meta-item">🌍 ${escapeHtml(job.country || 'Global')}</span>
       </div>
       <p class="job-description">${escapeHtml(job.description.substring(0, 200))}</p>
+      ${job.aiSummary ? `
+      <div class="ai-summary">
+        <span class="ai-icon">🤖</span>
+        <span>${escapeHtml(job.aiSummary)}</span>
+      </div>` : ''}
       <div class="job-actions">
         <a href="${job.url}" target="_blank" rel="noopener noreferrer" class="btn btn-job-link">
           💼 Job ansehen
         </a>
-        <button class="btn btn-favorite" data-id="${job.id}" onclick="toggleFavorite('${job.id}')">
-          ☆ Favorit
+        <button class="btn btn-favorite ${favorites[job.id] ? 'active' : ''}" data-id="${job.id}" onclick="toggleFavorite('${job.id}')">
+          ${favorites[job.id] ? '★ Favorit' : '☆ Favorit'}
         </button>
       </div>
     </div>
   `).join('');
 }
 
-async function toggleFavorite(jobId) {
+function toggleFavorite(jobId) {
   if (!currentUser) return;
 
-  try {
-    const res = await fetch(`${API_BASE}/favorites`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${currentToken}`
-      },
-      body: JSON.stringify({ email: currentUser, jobId })
-    });
-
-    const data = await res.json();
-    if (data.favorites) {
-      $('favoritesCount').textContent = Object.keys(data.favorites).length;
-      renderFavorites(Object.values(data.favorites));
+  if (favorites[jobId]) {
+    delete favorites[jobId];
+  } else {
+    const job = currentJobs.find(j => j.id === jobId);
+    if (job) {
+      favorites[jobId] = job;
     }
-  } catch (error) {
-    console.error('Favorite Error:', error);
   }
+
+  saveFavoritesToStorage();
+  $('favoritesCount').textContent = Object.keys(favorites).length;
+  renderFavorites(Object.values(favorites));
+  renderJobs(currentJobs);
 }
 
 function renderFavorites(favorites) {
@@ -316,6 +356,18 @@ window.addEventListener('DOMContentLoaded', () => {
     currentUser = email;
     render();
   }
+
+  const savedCvText = localStorage.getItem('jobMatcherCvText');
+  const savedCvFileName = localStorage.getItem('jobMatcherCvFileName');
+  if (savedCvText && savedCvFileName) {
+    currentCvText = savedCvText;
+    currentCvFileName = savedCvFileName;
+    updateCvStatus(savedCvFileName);
+  }
+
+  favorites = loadFavoritesFromStorage();
+  $('favoritesCount').textContent = Object.keys(favorites).length;
+  renderFavorites(Object.values(favorites));
 
   initGoogleLogin();
 });
