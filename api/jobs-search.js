@@ -134,8 +134,18 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Ungültiges Land. Erlaubt: Deutschland, Österreich, Schweiz' });
   }
 
-  if (!process.env.JSEARCH_API_KEY) {
+  const rapidApiKey = (process.env.JSEARCH_API_KEY || '').trim();
+
+  if (!rapidApiKey) {
     console.error('JSEARCH_API_KEY is not set in this deployment\'s environment.');
+  } else {
+    // Sicheres Diagnose-Log (kein vollständiges Secret): Länge + maskierter
+    // Anfang/Ende, um Whitespace-/Falscher-Key-/Env-Scope-Probleme zu erkennen,
+    // ohne den echten Key preiszugeben.
+    const masked = rapidApiKey.length > 8
+      ? `${rapidApiKey.slice(0, 4)}...${rapidApiKey.slice(-4)}`
+      : '(zu kurz)';
+    console.log(`JSEARCH_API_KEY present: length=${rapidApiKey.length}, masked=${masked}`);
   }
 
   try {
@@ -152,7 +162,7 @@ export default async function handler(req, res) {
         sort: 'relevance'
       },
       headers: {
-        'x-rapidapi-key': process.env.JSEARCH_API_KEY,
+        'x-rapidapi-key': rapidApiKey,
         'x-rapidapi-host': 'jsearch.p.rapidapi.com'
       },
       timeout: 10000
@@ -205,7 +215,7 @@ export default async function handler(req, res) {
     const bodyMessage = typeof body === 'string' ? body : (body?.message || body?.error || (body ? JSON.stringify(body) : null));
 
     let reason;
-    if (!process.env.JSEARCH_API_KEY) {
+    if (!rapidApiKey) {
       reason = 'JSEARCH_API_KEY ist in dieser Umgebung nicht gesetzt.';
     } else if (status === 401 || status === 403) {
       reason = `RapidAPI hat den Zugriff abgelehnt (HTTP ${status}) - meist fehlt ein aktives Abo der JSearch-API auf rapidapi.com/hub, oder der Key ist ungültig.${bodyMessage ? ' Antwort: ' + bodyMessage : ''}`;
@@ -216,7 +226,9 @@ export default async function handler(req, res) {
     } else if (status) {
       // Beliebiger anderer HTTP-Statuscode - Statuscode und Antworttext direkt
       // anzeigen, statt einen pauschalen "unbekannter Fehler" zu melden.
-      reason = `RapidAPI-Fehler HTTP ${status}${bodyMessage ? ': ' + bodyMessage : ''}`;
+      // Key-Länge mitgeben (kein Secret-Leak) - hilft, einen falschen/
+      // abgeschnittenen Key in Vercel zu erkennen.
+      reason = `RapidAPI-Fehler HTTP ${status}${bodyMessage ? ': ' + bodyMessage : ''} (verwendeter Key: ${rapidApiKey.length} Zeichen)`;
     } else {
       // Kein HTTP-Response erhalten -> Netzwerk-/Verbindungsfehler
       reason = `Netzwerkfehler bei der Anfrage an JSearch: ${error.code || error.message}`;
