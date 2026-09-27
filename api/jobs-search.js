@@ -154,11 +154,14 @@ export default async function handler(req, res) {
       ? `${role} ${roleDescription}`.slice(0, 200)
       : `${role} jobs`;
 
+    console.log(`[JSearch Request] Query: "${query}", Country: "${COUNTRY_CODES[country] || 'de'}"`);
+
+    // date_posted NICHT mitgeben - JSearch nutzt standardmäßig 'anytime'
+    // Der Parameter wird von manchen API-Versionen nicht korrekt validiert
     const response = await axios.get('https://jsearch.p.rapidapi.com/search-v2', {
       params: {
         query,
         num_pages: '1',
-        date_posted: 'anytime',
         country: COUNTRY_CODES[country] || 'de'
       },
       headers: {
@@ -167,6 +170,8 @@ export default async function handler(req, res) {
       },
       timeout: 10000
     });
+
+    console.log(`[JSearch Success] Got ${(response.data.data || []).length} jobs`);
 
     let jobs = (response.data.data || []).slice(0, 12).map((job, index) => {
       const combinedText = `${job.job_title || ''} ${job.job_description || ''} ${job.employer_name || ''}`;
@@ -204,9 +209,25 @@ export default async function handler(req, res) {
   } catch (error) {
     const status = error.response?.status;
     const body = error.response?.data;
-    console.error('JSearch API Error:', status, JSON.stringify(body) || error.message);
-
-    const bodyMessage = typeof body === 'string' ? body : (body?.message || body?.error || (body ? JSON.stringify(body) : null));
+    
+    // Korrektes Auslesen der verschachtelten Error-Struktur
+    let bodyMessage = '';
+    if (body?.error?.message) {
+      bodyMessage = body.error.message;
+    } else if (body?.message) {
+      bodyMessage = body.message;
+    } else if (typeof body === 'string') {
+      bodyMessage = body;
+    } else if (body) {
+      bodyMessage = JSON.stringify(body);
+    }
+    
+    console.error('JSearch API Error:', {
+      status,
+      statusText: error.response?.statusText,
+      message: bodyMessage,
+      code: error.code
+    });
 
     let reason;
     if (!rapidApiKey) {
@@ -215,6 +236,8 @@ export default async function handler(req, res) {
       reason = `RapidAPI hat den Zugriff abgelehnt (HTTP ${status}) - meist fehlt ein aktives Abo der JSearch-API auf rapidapi.com/hub, oder der Key ist ungültig.${bodyMessage ? ' Antwort: ' + bodyMessage : ''}`;
     } else if (status === 429) {
       reason = `RapidAPI-Kontingent aufgebraucht (429 Too Many Requests).${bodyMessage ? ' Antwort: ' + bodyMessage : ''}`;
+    } else if (status === 400) {
+      reason = `JSearch API Validierungsfehler (HTTP 400): ${bodyMessage || 'Ungültige Parameter'}`;
     } else if (error.code === 'ECONNABORTED') {
       reason = 'Zeitüberschreitung bei der Anfrage an JSearch.';
     } else if (status) {
