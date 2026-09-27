@@ -248,6 +248,6 @@ export default async function handler(req, res) {
       }
     ];
 
-    res.json({ jobs: fbackJobs, aiPowered: false, fback: true, reason });
+    res.json({ jobs: fbackJobs, aiPowered: false, fallback: true, reason });
   }
 }
