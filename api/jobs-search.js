@@ -143,9 +143,6 @@ export default async function handler(req, res) {
   if (!rapidApiKey) {
     console.error('JSEARCH_API_KEY is not set in this deployment\'s environment.');
   } else {
-    // Sicheres Diagnose-Log (kein vollständiges Secret): Länge + maskierter
-    // Anfang/Ende, um Whitespace-/Falscher-Key-/Env-Scope-Probleme zu erkennen,
-    // ohne den echten Key preiszugeben.
     const masked = rapidApiKey.length > 8
       ? `${rapidApiKey.slice(0, 4)}...${rapidApiKey.slice(-4)}`
       : '(zu kurz)';
@@ -153,11 +150,6 @@ export default async function handler(req, res) {
   }
 
   try {
-    // RapidAPI hat den alten "/search"-Endpunkt auf "/search-v2" migriert
-    // (siehe Fehlerhinweis von RapidAPI selbst: "Endpoint '/search' does not
-    // exist", Beispiel-curl zeigt "/search-v2"). v2 nutzt außerdem einen
-    // ISO-3166-alpha-2 "country"-Parameter statt des Ländernamens im
-    // Freitext, und kein "page"/"sort" mehr (Paginierung über "cursor").
     const query = roleDescription
       ? `${role} ${roleDescription}`.slice(0, 200)
       : `${role} jobs`;
@@ -193,9 +185,6 @@ export default async function handler(req, res) {
       };
     });
 
-    // KI-Bewertung: überschreibt den Keyword-Score und liefert eine
-    // nachvollziehbare Zusammenfassung pro Job. Fällt bei Fehlern/fehlendem
-    // API-Key automatisch auf den einfachen Keyword-Score zurück.
     const aiResults = await scoreJobsWithAI({ cvText, role, roleDescription, jobs });
     if (aiResults) {
       jobs = jobs.map((job, i) => {
@@ -209,9 +198,6 @@ export default async function handler(req, res) {
       });
     }
 
-    // Kein hartes 90%-Filter mehr (führte praktisch immer zu leeren
-    // Ergebnissen) - stattdessen absteigend nach Match sortieren und
-    // die besten Treffer zeigen.
     jobs = jobs.sort((a, b) => b.match - a.match).slice(0, 10);
 
     res.json({ jobs, aiPowered: !!aiResults });
@@ -232,18 +218,11 @@ export default async function handler(req, res) {
     } else if (error.code === 'ECONNABORTED') {
       reason = 'Zeitüberschreitung bei der Anfrage an JSearch.';
     } else if (status) {
-      // Beliebiger anderer HTTP-Statuscode - Statuscode und Antworttext direkt
-      // anzeigen, statt einen pauschalen "unbekannter Fehler" zu melden.
-      // Key-Länge mitgeben (kein Secret-Leak) - hilft, einen falschen/
-      // abgeschnittenen Key in Vercel zu erkennen.
       reason = `RapidAPI-Fehler HTTP ${status}${bodyMessage ? ': ' + bodyMessage : ''} (verwendeter Key: ${rapidApiKey.length} Zeichen)`;
     } else {
-      // Kein HTTP-Response erhalten -> Netzwerk-/Verbindungsfehler
       reason = `Netzwerkfehler bei der Anfrage an JSearch: ${error.code || error.message}`;
     }
 
-    // Fback Demo-Jobs, fs die externe Jobsuche fehlschlägt
-    // (z. B. fehlender/ungültiger JSEARCH_API_KEY, fehlendes RapidAPI-Abo)
     const fbackJobs = [
       {
         id: 'fback-1',
