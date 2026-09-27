@@ -148,7 +148,7 @@ export default async function handler(req, res) {
         query,
         page: '1',
         num_pages: '1',
-        date_posted: 'all',
+        date_posted: 'anytime',
         sort: 'relevance'
       },
       headers: {
