@@ -6,6 +6,49 @@ let currentCvText = null;
 let currentCvFileName = null;
 let currentJobs = [];
 let favorites = {};
+let showLowMatches = false;
+let currentFallback = false;
+
+// Nur Treffer ab dieser Schwelle werden standardmäßig angezeigt.
+const MATCH_THRESHOLD = 90;
+const MIN_CV_CHARS = 200;
+
+// Liest den Text eines Lebenslaufs (TXT, PDF, DOCX) direkt im Browser.
+// file.text() liefert bei PDF/DOCX nur Binärmüll, den die KI nicht analysieren kann.
+async function extractCvText(file) {
+  const name = file.name.toLowerCase();
+
+  if (name.endsWith('.txt') || name.endsWith('.md') || file.type === 'text/plain') {
+    return file.text();
+  }
+
+  if (name.endsWith('.pdf')) {
+    if (!window.pdfjsLib) throw new Error('PDF-Leser konnte nicht geladen werden. Bitte Seite neu laden.');
+    window.pdfjsLib.GlobalWorkerOptions.workerSrc =
+      'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    const pdf = await window.pdfjsLib.getDocument({ data: await file.arrayBuffer() }).promise;
+    const pages = [];
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i);
+      const content = await page.getTextContent();
+      // hasEOL erhält Zeilenumbrüche, damit die Struktur des CVs lesbar bleibt
+      pages.push(content.items.map((it) => it.str + (it.hasEOL ? '\n' : ' ')).join(''));
+    }
+    return pages.join('\n\n');
+  }
+
+  if (name.endsWith('.docx')) {
+    if (!window.mammoth) throw new Error('Word-Leser konnte nicht geladen werden. Bitte Seite neu laden.');
+    const result = await window.mammoth.extractRawText({ arrayBuffer: await file.arrayBuffer() });
+    return result.value;
+  }
+
+  if (name.endsWith('.doc')) {
+    throw new Error('Das alte .doc-Format wird nicht unterstützt. Bitte als PDF oder DOCX speichern.');
+  }
+
+  throw new Error('Nicht unterstütztes Dateiformat. Erlaubt: PDF, DOCX, TXT.');
+}
 
 const $ = (id) => document.getElementById(id);
 
@@ -112,7 +155,14 @@ $('cvInput').addEventListener('change', async (e) => {
   if (!file || !currentUser) return;
 
   try {
-    const text = await file.text();
+    showStatus('🔄 Lebenslauf wird gelesen...', 'info');
+    const text = (await extractCvText(file)).replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
+
+    if (text.length < MIN_CV_CHARS) {
+      showStatus('❌ Aus der Datei konnte kaum Text gelesen werden (gescanntes PDF/Bild?). Bitte ein PDF mit Text, DOCX oder TXT hochladen.', 'error');
+      e.target.value = '';
+      return;
+    }
 
     // Lebenslauf lokal speichern - das ist die Quelle der Wahrheit für die
     // Jobsuche, da Vercel-Functions keinen Speicher über Requests hinweg teilen.
@@ -121,7 +171,7 @@ $('cvInput').addEventListener('change', async (e) => {
     localStorage.setItem('jobMatcherCvText', text);
     localStorage.setItem('jobMatcherCvFileName', file.name);
 
-    showStatus(`✅ Lebenslauf hochgeladen: ${file.name}`, 'success');
+    showStatus(`✅ Lebenslauf gelesen: ${file.name} (${text.length.toLocaleString('de-DE')} Zeichen)`, 'success');
     updateCvStatus(file.name);
 
     // Best-effort serverseitiges Speichern (z. B. für zukünftiges Logging);
@@ -136,7 +186,7 @@ $('cvInput').addEventListener('change', async (e) => {
     }).catch(() => {});
   } catch (error) {
     console.error('CV Upload Error:', error);
-    showStatus('Fehler beim Hochladen', 'error');
+    showStatus(`❌ ${error.message || 'Fehler beim Hochladen'}`, 'error');
   }
 });
 
@@ -152,8 +202,8 @@ $('removeCvBtn').addEventListener('click', () => {
   showStatus('✅ Lebenslauf gelöscht', 'success');
   updateCvStatus(null);
   currentJobs = [];
+  renderCvProfile(null);
   renderJobs([]);
-  $('foundJobsCount').textContent = '0';
 });
 
 // Job Search
@@ -200,20 +250,28 @@ $('scanBtn').addEventListener('click', async () => {
     }
 
     currentJobs = data.jobs || [];
+    currentFallback = !!data.fallback;
+    showLowMatches = false;
+    renderCvProfile(data.cvProfile);
 
     if (data.fallback) {
       showStatus(`⚠️ Demo-Jobs (externe Jobsuche fehlgeschlagen): ${data.reason || ''}`, 'error');
       renderJobs(currentJobs);
-      $('foundJobsCount').textContent = currentJobs.length;
     } else if (currentJobs.length > 0) {
-      const suffix = data.aiPowered ? ' (KI-bewertet)' : '';
-      showStatus(`✅ ${currentJobs.length} passende Jobs gefunden!${suffix}`, 'success');
+      const strong = currentJobs.filter((j) => j.match >= MATCH_THRESHOLD).length;
+      const hidden = currentJobs.length - strong;
+      let msg = strong > 0
+        ? `✅ ${strong} Job${strong === 1 ? '' : 's'} mit mindestens ${MATCH_THRESHOLD} % Match gefunden`
+        : `Keine Jobs mit mindestens ${MATCH_THRESHOLD} % Match gefunden`;
+      if (hidden > 0) msg += ` – ${hidden} weitere unter ${MATCH_THRESHOLD} % ausgeblendet`;
+      if (!data.aiPowered) {
+        msg += ` ⚠️ Ohne KI-Bewertung (${data.aiError || 'KI nicht verfügbar'}) – nur grobe Keyword-Näherung`;
+      }
+      showStatus(msg, strong > 0 && data.aiPowered ? 'success' : 'info');
       renderJobs(currentJobs);
-      $('foundJobsCount').textContent = currentJobs.length;
     } else {
       showStatus(`❌ Keine passenden Jobs gefunden${data.note ? ' – ' + data.note : ''}`, 'info');
       renderJobs([]);
-      $('foundJobsCount').textContent = '0';
     }
   } catch (error) {
     console.error('Search Error:', error);
@@ -221,16 +279,76 @@ $('scanBtn').addEventListener('click', async () => {
   }
 });
 
+function setShowLowMatches(value) {
+  showLowMatches = value;
+  renderJobs(currentJobs);
+}
+
+function renderCvProfile(profile) {
+  const box = $('cvProfileBox');
+  if (!profile || (!profile.summary && !profile.headline)) {
+    box.classList.add('hidden');
+    box.innerHTML = '';
+    return;
+  }
+  const skills = (profile.coreSkills || []).slice(0, 12)
+    .map((sk) => `<span class="skill-chip">${escapeHtml(String(sk))}</span>`).join('');
+  box.innerHTML = `
+    <p><strong>🧠 So hat die KI deinen Lebenslauf verstanden:</strong>
+    ${escapeHtml(profile.headline || '')}${profile.seniority ? ' · ' + escapeHtml(profile.seniority) : ''}</p>
+    ${profile.summary ? `<p class="cv-profile-text">${escapeHtml(profile.summary)}</p>` : ''}
+    ${skills ? `<div class="skill-chips">${skills}</div>` : ''}`;
+  box.classList.remove('hidden');
+}
+
+function renderBreakdown(job) {
+  if (!Array.isArray(job.breakdown) || job.breakdown.length === 0) {
+    return currentFallback ? '' : '<p class="field-hint">Grobe Keyword-Näherung – keine KI-Bewertung.</p>';
+  }
+  const rows = job.breakdown.map((b) => `
+    <li>
+      <span class="bd-label">${escapeHtml(b.label)}</span>
+      <span class="bd-score">${b.score} %</span>
+      <span class="bd-weight">Gewicht ${b.weight} %</span>
+      <span class="bd-reason">${escapeHtml(b.reason || '')}</span>
+    </li>`).join('');
+  return `
+    <details class="match-details">
+      <summary>Wie kommt der Wert von ${job.match} % zustande?</summary>
+      ${job.matchFormula ? `<p class="match-formula">${escapeHtml(job.matchFormula)}</p>` : ''}
+      <ul class="match-breakdown">${rows}</ul>
+    </details>`;
+}
+
 function renderJobs(jobs) {
   const container = $('jobsContainer');
 
   if (!jobs || jobs.length === 0) {
     container.innerHTML = '<p class="empty-state">Keine Jobangebote gefunden. Versuche eine neue Suche.</p>';
+    $('foundJobsCount').textContent = '0';
     return;
   }
 
-  container.innerHTML = jobs.map((job) => `
-    <div class="job-card">
+  // Unter der Schwelle wird nur auf ausdrücklichen Wunsch angezeigt.
+  const visible = (showLowMatches || currentFallback)
+    ? jobs
+    : jobs.filter((j) => j.match >= MATCH_THRESHOLD);
+  const hiddenCount = jobs.length - visible.length;
+  $('foundJobsCount').textContent = visible.length;
+
+  const toggle = hiddenCount > 0
+    ? `<button class="btn btn-secondary full" onclick="setShowLowMatches(true)">Auch ${hiddenCount} Match${hiddenCount === 1 ? '' : 'es'} unter ${MATCH_THRESHOLD} % anzeigen</button>`
+    : (showLowMatches && !currentFallback && jobs.some((j) => j.match < MATCH_THRESHOLD)
+      ? `<button class="btn btn-secondary full" onclick="setShowLowMatches(false)">Matches unter ${MATCH_THRESHOLD} % wieder ausblenden</button>`
+      : '');
+
+  if (visible.length === 0) {
+    container.innerHTML = `<p class="empty-state">Keine Jobs mit mindestens ${MATCH_THRESHOLD} % Match. Treffer darunter kannst du mit dem Button einblenden.</p>${toggle}`;
+    return;
+  }
+
+  container.innerHTML = visible.map((job) => `
+    <div class="job-card${job.match < MATCH_THRESHOLD && !currentFallback ? ' low-match' : ''}">
       <div class="job-header">
         <div class="job-title">
           <h4>${escapeHtml(job.title)}</h4>
@@ -248,6 +366,7 @@ function renderJobs(jobs) {
         <span class="ai-icon">🤖</span>
         <span>${escapeHtml(job.aiSummary)}</span>
       </div>` : ''}
+      ${renderBreakdown(job)}
       <div class="job-actions">
         <a href="${job.url}" target="_blank" rel="noopener noreferrer" class="btn btn-job-link">
           💼 Job ansehen
@@ -257,7 +376,7 @@ function renderJobs(jobs) {
         </button>
       </div>
     </div>
-  `).join('');
+  `).join('') + toggle;
 }
 
 function toggleFavorite(jobId) {

@@ -55,7 +55,7 @@
             <h3>📄 Dein Lebenslauf</h3>
           </div>
           <label class="upload-box">
-            <input id="cvInput" type="file" accept=".pdf,.doc,.docx,.txt" />
+            <input id="cvInput" type="file" accept=".pdf,.docx,.txt" />
             <div class="upload-content">
               <span class="upload-icon">📤</span>
               <span class="upload-text">Klick zum Hochladen</span>
@@ -132,8 +132,9 @@
       <!-- Results Section -->
       <div class="card results-card">
         <div class="card-header">
-          <h3>✨ Passende Jobangebote</h3>
+          <h3>✨ Passende Jobangebote (ab 90 % Match)</h3>
         </div>
+        <div id="cvProfileBox" class="cv-profile hidden"></div>
         <div id="jobsContainer" class="jobs-container">
           <p class="empty-state">Lade einen Lebenslauf hoch und starte eine Suche</p>
         </div>
@@ -151,6 +152,9 @@
     </section>
   </div>
 
+  <!-- Textextraktion für PDF/DOCX im Browser (Lebenslauf verlässt dafür den Browser nicht) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
