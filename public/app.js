@@ -211,7 +211,7 @@ $('scanBtn').addEventListener('click', async () => {
       renderJobs(currentJobs);
       $('foundJobsCount').textContent = currentJobs.length;
     } else {
-      showStatus('❌ Keine passenden Jobs gefunden', 'info');
+      showStatus(`❌ Keine passenden Jobs gefunden${data.note ? ' – ' + data.note : ''}`, 'info');
       renderJobs([]);
       $('foundJobsCount').textContent = '0';
     }

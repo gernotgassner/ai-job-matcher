@@ -171,9 +171,29 @@ export default async function handler(req, res) {
       timeout: 10000
     });
 
-    console.log(`[JSearch Success] Got ${(response.data.data || []).length} jobs`);
+    // /search-v2 liefert "data" als Objekt (inkl. "cursor"), nicht mehr direkt
+    // als Array. Das Format defensiv auflösen und bei Unbekanntem loggen.
+    const rawData = response.data?.data;
+    let rawJobs = [];
+    let shapeNote = null;
+    if (Array.isArray(rawData)) {
+      rawJobs = rawData;
+    } else if (rawData && typeof rawData === 'object') {
+      const candidate = rawData.jobs || rawData.results || rawData.data || rawData.items;
+      if (Array.isArray(candidate)) {
+        rawJobs = candidate;
+      } else {
+        shapeNote = `Unerwartetes JSearch-v2-Format, Felder in data: ${Object.keys(rawData).join(', ')}`;
+        console.error(shapeNote);
+      }
+    } else {
+      shapeNote = `Unerwartete JSearch-v2-Antwort, Felder: ${Object.keys(response.data || {}).join(', ')}`;
+      console.error(shapeNote);
+    }
 
-    let jobs = (response.data.data || []).slice(0, 12).map((job, index) => {
+    console.log(`[JSearch Success] Got ${rawJobs.length} jobs`);
+
+    let jobs = rawJobs.slice(0, 12).map((job, index) => {
       const combinedText = `${job.job_title || ''} ${job.job_description || ''} ${job.employer_name || ''}`;
       const match = calculateMatchScore(cvText, combinedText);
 
@@ -205,7 +225,7 @@ export default async function handler(req, res) {
 
     jobs = jobs.sort((a, b) => b.match - a.match).slice(0, 10);
 
-    res.json({ jobs, aiPowered: !!aiResults });
+    res.json({ jobs, aiPowered: !!aiResults, note: jobs.length === 0 ? shapeNote : null });
   } catch (error) {
     const status = error.response?.status;
     const body = error.response?.data;
