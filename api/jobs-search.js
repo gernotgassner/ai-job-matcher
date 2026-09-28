@@ -45,8 +45,9 @@ function calculateMatchScore(cvText, jobText) {
 // Lässt die KI jeden Job anhand von CV + Wunschberuf + Kurzbeschrieb bewerten
 // und eine kurze, deutschsprachige Begründung/Zusammenfassung erstellen.
 async function scoreJobsWithAI({ cvText, role, roleDescription, jobs }) {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey || jobs.length === 0) return null;
+  const openaiKey = (process.env.OPENAI_API_KEY || '').trim();
+  const anthropicKey = (process.env.ANTHROPIC_API_KEY || '').trim();
+  if ((!openaiKey && !anthropicKey) || jobs.length === 0) return null;
 
   const jobList = jobs.map((job, i) => ({
     index: i,
@@ -67,37 +68,61 @@ KURZBESCHRIEB DES KANDIDATEN ZUM WUNSCHBERUF: ${roleDescription || '(keine Angab
 STELLENANZEIGEN (JSON):
 ${JSON.stringify(jobList)}
 
-Antworte AUSSCHLIESSLICH mit einem JSON-Array (kein Fließtext, keine Markdown-Codeblöcke). Ein Objekt pro Stellenanzeige, in der Reihenfolge des "index"-Feldes:
-[{"index": 0, "match": 0-100, "summary": "1-2 kurze Sätze auf Deutsch, warum diese Stelle passt oder nicht passt, unter Berücksichtigung von Lebenslauf, Wunschberuf und Kurzbeschrieb"}]`;
+Antworte AUSSCHLIESSLICH mit einem JSON-Objekt der Form {"results": [...]} (kein Fließtext, keine Markdown-Codeblöcke). "results" enthält ein Objekt pro Stellenanzeige:
+{"index": 0, "match": 0-100, "summary": "1-2 kurze Sätze auf Deutsch, warum diese Stelle passt oder nicht passt, unter Berücksichtigung von Lebenslauf, Wunschberuf und Kurzbeschrieb"}`;
 
   try {
-    const response = await axios.post(
-      'https://api.anthropic.com/v1/messages',
-      {
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 2000,
-        messages: [{ role: 'user', content: prompt }]
-      },
-      {
-        headers: {
-          'x-api-key': apiKey,
-          'anthropic-version': '2023-06-01',
-          'content-type': 'application/json'
+    let text;
+
+    if (openaiKey) {
+      // OpenAI (bevorzugt, falls OPENAI_API_KEY gesetzt ist)
+      const response = await axios.post(
+        'https://api.openai.com/v1/chat/completions',
+        {
+          model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
+          messages: [{ role: 'user', content: prompt }],
+          response_format: { type: 'json_object' },
+          temperature: 0.2
         },
-        timeout: 25000
-      }
-    );
+        {
+          headers: {
+            Authorization: `Bearer ${openaiKey}`,
+            'Content-Type': 'application/json'
+          },
+          timeout: 25000
+        }
+      );
+      text = response.data?.choices?.[0]?.message?.content;
+    } else {
+      // Fallback: Anthropic, falls nur ANTHROPIC_API_KEY gesetzt ist
+      const response = await axios.post(
+        'https://api.anthropic.com/v1/messages',
+        {
+          model: 'claude-haiku-4-5-20251001',
+          max_tokens: 2000,
+          messages: [{ role: 'user', content: prompt }]
+        },
+        {
+          headers: {
+            'x-api-key': anthropicKey,
+            'anthropic-version': '2023-06-01',
+            'content-type': 'application/json'
+          },
+          timeout: 25000
+        }
+      );
+      text = (response.data.content || []).find(b => b.type === 'text')?.text;
+    }
 
-    const textBlock = (response.data.content || []).find(b => b.type === 'text');
-    if (!textBlock) return null;
+    if (!text) return null;
 
-    const cleaned = textBlock.text.replace(/```json|```/g, '').trim();
-    const parsed = JSON.parse(cleaned);
+    const parsed = JSON.parse(text.replace(/```json|```/g, '').trim());
+    const list = Array.isArray(parsed) ? parsed : parsed.results;
+    if (!Array.isArray(list)) return null;
 
-    const byIndex = new Map(parsed.map(r => [r.index, r]));
-    return byIndex;
+    return new Map(list.map(r => [r.index, r]));
   } catch (error) {
-    console.error('AI scoring error:', error.message);
+    console.error('AI scoring error:', error.response?.status, error.response?.data?.error?.message || error.message);
     return null;
   }
 }
