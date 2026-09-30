@@ -38,7 +38,8 @@ export default async function handler(req, res) {
 
     res.json({ url: session.url });
   } catch (error) {
-    console.error('Create Checkout Session Error:', error.message);
-    res.status(500).json({ error: 'Checkout konnte nicht gestartet werden. Bitte später erneut versuchen.' });
+    const detail = error.raw?.message || error.message;
+    console.error('Create Checkout Session Error:', detail);
+    res.status(500).json({ error: `Checkout konnte nicht gestartet werden: ${detail}` });
   }
 }

@@ -152,41 +152,39 @@ function setPaywall(show) {
   $('scanBtn').disabled = show;
 }
 
-async function startCheckout() {
+async function callStripeEndpoint(path, btn, fallbackMsg) {
+  const originalLabel = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = '⏳ Bitte warten...';
   try {
-    const res = await fetch(`${API_BASE}/create-checkout-session`, {
+    const res = await fetch(`${API_BASE}${path}`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${currentToken}` }
     });
-    const data = await res.json();
-    if (data.url) {
+    const data = await res.json().catch(() => ({}));
+
+    if (res.ok && data.url) {
       window.location.href = data.url;
-    } else {
-      showStatus(`❌ ${data.error || 'Checkout konnte nicht gestartet werden'}`, 'error');
+      return;
     }
+
+    const message = data.error || `${fallbackMsg} (HTTP ${res.status})`;
+    console.error('Stripe Endpoint Error:', path, res.status, message);
+    showStatus(`❌ ${message}`, 'error');
+    // Fehlertext auch direkt sichtbar dort platzieren, wo geklickt wurde
+    $('subscriptionStatusText').textContent = `❌ ${message}`;
   } catch (error) {
-    console.error('Checkout Error:', error);
-    showStatus('❌ Checkout konnte nicht gestartet werden', 'error');
+    console.error('Stripe Endpoint Network Error:', path, error);
+    showStatus(`❌ ${fallbackMsg}: ${error.message}`, 'error');
+    $('subscriptionStatusText').textContent = `❌ ${fallbackMsg}: ${error.message}`;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = originalLabel;
   }
 }
 
-async function openPortal() {
-  try {
-    const res = await fetch(`${API_BASE}/create-portal-session`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${currentToken}` }
-    });
-    const data = await res.json();
-    if (data.url) {
-      window.location.href = data.url;
-    } else {
-      showStatus(`❌ ${data.error || 'Kundenportal konnte nicht geöffnet werden'}`, 'error');
-    }
-  } catch (error) {
-    console.error('Portal Error:', error);
-    showStatus('❌ Kundenportal konnte nicht geöffnet werden', 'error');
-  }
-}
+const startCheckout = () => callStripeEndpoint('/create-checkout-session', $('subscribeBtn').classList.contains('hidden') ? $('paywallSubscribeBtn') : $('subscribeBtn'), 'Checkout konnte nicht gestartet werden');
+const openPortal = () => callStripeEndpoint('/create-portal-session', $('manageSubBtn'), 'Kundenportal konnte nicht geöffnet werden');
 
 $('subscribeBtn').addEventListener('click', startCheckout);
 $('paywallSubscribeBtn').addEventListener('click', startCheckout);

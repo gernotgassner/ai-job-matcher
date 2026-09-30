@@ -31,7 +31,8 @@ export default async function handler(req, res) {
       status: subscription?.status || null
     });
   } catch (error) {
-    console.error('Subscription Status Error:', error.message);
-    res.status(500).json({ error: 'Abo-Status konnte nicht geladen werden.' });
+    const detail = error.raw?.message || error.message;
+    console.error('Subscription Status Error:', detail);
+    res.status(500).json({ error: `Abo-Status konnte nicht geladen werden: ${detail}` });
   }
 }
