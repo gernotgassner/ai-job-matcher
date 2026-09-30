@@ -105,32 +105,92 @@ async function handleGoogleLogin(response) {
   }
 }
 
-// Test Login
-$('testLoginBtn').addEventListener('click', async () => {
-  const email = $('testEmail').value.trim();
-  if (!email) {
-    showStatus('Bitte E-Mail eingeben', 'error');
-    return;
-  }
+// Abo-Status laden und Profil-Box entsprechend aktualisieren
+let currentEntitlement = { subscribed: false, freeSearchAvailable: true };
+
+async function refreshSubscriptionStatus() {
+  const box = $('subscriptionStatusText');
+  const subscribeBtn = $('subscribeBtn');
+  const manageBtn = $('manageSubBtn');
 
   try {
-    const res = await fetch(`${API_BASE}/test-login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email })
+    const res = await fetch(`${API_BASE}/subscription-status`, {
+      headers: { Authorization: `Bearer ${currentToken}` }
     });
-
     const data = await res.json();
-    if (data.token) {
-      loginSuccess(data.user.email, data.token);
+    if (!res.ok) throw new Error(data.error || 'Fehler');
+
+    currentEntitlement = { subscribed: data.subscribed, freeSearchAvailable: data.freeSearchAvailable };
+
+    if (data.subscribed) {
+      const renewalNote = data.currentPeriodEnd
+        ? new Date(data.currentPeriodEnd * 1000).toLocaleDateString('de-DE')
+        : null;
+      box.textContent = data.cancelAtPeriodEnd
+        ? `✅ Abo aktiv – läuft am ${renewalNote || 'Periodenende'} aus`
+        : `✅ Abo aktiv${renewalNote ? ` – verlängert sich am ${renewalNote}` : ''}`;
+      subscribeBtn.classList.add('hidden');
+      manageBtn.classList.remove('hidden');
+    } else if (data.freeSearchAvailable) {
+      box.textContent = '🎁 Deine kostenlose Suche für diesen Monat ist noch verfügbar';
+      subscribeBtn.classList.remove('hidden');
+      manageBtn.classList.add('hidden');
     } else {
-      showStatus('Login fehlgeschlagen', 'error');
+      box.textContent = '🔒 Kostenlose Suche aufgebraucht – Abo nötig';
+      subscribeBtn.classList.remove('hidden');
+      manageBtn.classList.add('hidden');
+    }
+    setPaywall(!data.subscribed && !data.freeSearchAvailable);
+  } catch (error) {
+    console.error('Subscription Status Error:', error);
+    box.textContent = 'Abo-Status konnte nicht geladen werden.';
+  }
+}
+
+function setPaywall(show) {
+  $('paywallBox').classList.toggle('hidden', !show);
+  $('scanBtn').disabled = show;
+}
+
+async function startCheckout() {
+  try {
+    const res = await fetch(`${API_BASE}/create-checkout-session`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${currentToken}` }
+    });
+    const data = await res.json();
+    if (data.url) {
+      window.location.href = data.url;
+    } else {
+      showStatus(`❌ ${data.error || 'Checkout konnte nicht gestartet werden'}`, 'error');
     }
   } catch (error) {
-    console.error('Login Error:', error);
-    showStatus('Verbindungsfehler', 'error');
+    console.error('Checkout Error:', error);
+    showStatus('❌ Checkout konnte nicht gestartet werden', 'error');
   }
-});
+}
+
+async function openPortal() {
+  try {
+    const res = await fetch(`${API_BASE}/create-portal-session`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${currentToken}` }
+    });
+    const data = await res.json();
+    if (data.url) {
+      window.location.href = data.url;
+    } else {
+      showStatus(`❌ ${data.error || 'Kundenportal konnte nicht geöffnet werden'}`, 'error');
+    }
+  } catch (error) {
+    console.error('Portal Error:', error);
+    showStatus('❌ Kundenportal konnte nicht geöffnet werden', 'error');
+  }
+}
+
+$('subscribeBtn').addEventListener('click', startCheckout);
+$('paywallSubscribeBtn').addEventListener('click', startCheckout);
+$('manageSubBtn').addEventListener('click', openPortal);
 
 function loginSuccess(email, token) {
   currentUser = email;
@@ -218,6 +278,12 @@ $('scanBtn').addEventListener('click', async () => {
     return;
   }
 
+  if (!currentEntitlement.subscribed && !currentEntitlement.freeSearchAvailable) {
+    setPaywall(true);
+    showStatus('🔒 Kostenlose Suche aufgebraucht - bitte abonnieren', 'info');
+    return;
+  }
+
   const role = $('jobRoleInput').value.trim() || 'Software Engineer';
   const roleDescription = $('jobRoleDescriptionInput').value.trim();
   const country = $('countrySelect').value;
@@ -242,6 +308,13 @@ $('scanBtn').addEventListener('click', async () => {
 
     const data = await res.json();
 
+    if (res.status === 402) {
+      setPaywall(true);
+      showStatus(`🔒 ${data.message || 'Kostenlose Suche aufgebraucht - bitte abonnieren'}`, 'info');
+      refreshSubscriptionStatus();
+      return;
+    }
+
     if (!res.ok) {
       showStatus(`❌ ${data.error || 'Fehler bei der Jobsuche'}`, 'error');
       currentJobs = [];
@@ -253,6 +326,7 @@ $('scanBtn').addEventListener('click', async () => {
     currentFallback = !!data.fallback;
     showLowMatches = false;
     renderCvProfile(data.cvProfile);
+    refreshSubscriptionStatus();
 
     if (data.fallback) {
       showStatus(`⚠️ Demo-Jobs (externe Jobsuche fehlgeschlagen): ${data.reason || ''}`, 'error');
@@ -456,6 +530,7 @@ function render() {
     appSection.classList.remove('hidden');
     logoutBtn.classList.remove('hidden');
     userEmail.textContent = currentUser;
+    refreshSubscriptionStatus();
   } else {
     loginSection.classList.remove('hidden');
     appSection.classList.add('hidden');
@@ -491,6 +566,17 @@ window.addEventListener('DOMContentLoaded', () => {
   favorites = loadFavoritesFromStorage();
   $('favoritesCount').textContent = Object.keys(favorites).length;
   renderFavorites(Object.values(favorites));
+
+  const checkoutResult = new URLSearchParams(window.location.search).get('checkout');
+  if (checkoutResult === 'success') {
+    showStatus('✅ Vielen Dank! Dein Abo ist aktiv.', 'success');
+    refreshSubscriptionStatus();
+  } else if (checkoutResult === 'cancel') {
+    showStatus('Checkout abgebrochen.', 'info');
+  }
+  if (checkoutResult) {
+    window.history.replaceState({}, '', window.location.pathname);
+  }
 
   initGoogleLogin();
 });

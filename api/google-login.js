@@ -32,6 +32,10 @@ export default async function handler(req, res) {
     const payload = ticket.getPayload();
     const email = payload.email;
 
+    if (!payload.email_verified) {
+      return res.status(401).json({ error: 'E-Mail-Adresse ist bei Google nicht verifiziert.' });
+    }
+
     if (!users.has(email)) {
       users.set(email, {
         cvText: '',

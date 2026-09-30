@@ -26,22 +26,10 @@
         <p>Finde Jobangebote, die perfekt zu dir passen.</p>
         
         <div id="googleButtonContainer" class="google-button-container"></div>
-        
-        <div class="divider">oder</div>
-        
-        <div class="form-group">
-          <label for="testEmail">Test-Login (E-Mail)</label>
-          <input 
-            id="testEmail" 
-            type="email" 
-            placeholder="deine@email.com" 
-            value="demo.user@gmail.com"
-          />
-        </div>
-        <button id="testLoginBtn" class="btn btn-primary">Testlogin</button>
-        
+
         <p class="info-text">
-          ℹ️ Das ist eine Demo. Alle Daten bleiben in dieser Session.
+          ℹ️ Die erste Jobsuche pro Monat ist kostenlos. Ab der zweiten Suche
+          brauchst du das Abo (CHF 9.90/Monat, monatlich kündbar).
         </p>
       </div>
     </section>
@@ -126,6 +114,11 @@
               <span id="favoritesCount" class="stat-value">0</span>
             </div>
           </div>
+          <div id="subscriptionBox" class="subscription-box">
+            <p id="subscriptionStatusText">Abo-Status wird geladen...</p>
+            <button id="subscribeBtn" class="btn btn-primary full hidden">💳 Abo abschließen (CHF 9.90/Monat)</button>
+            <button id="manageSubBtn" class="btn btn-secondary full hidden">⚙️ Abo verwalten</button>
+          </div>
         </div>
       </div>
 
@@ -135,6 +128,11 @@
           <h3>✨ Passende Jobangebote (ab 90 % Match)</h3>
         </div>
         <div id="cvProfileBox" class="cv-profile hidden"></div>
+        <div id="paywallBox" class="paywall-box hidden">
+          <p>🔒 Deine kostenlose Suche für diesen Monat ist aufgebraucht.</p>
+          <p class="field-hint">Mit dem Abo (CHF 9.90/Monat, monatlich kündbar) suchst du unbegrenzt weiter.</p>
+          <button id="paywallSubscribeBtn" class="btn btn-primary full">💳 Jetzt abonnieren</button>
+        </div>
         <div id="jobsContainer" class="jobs-container">
           <p class="empty-state">Lade einen Lebenslauf hoch und starte eine Suche</p>
         </div>

@@ -1,5 +1,6 @@
 import axios from 'axios';
 import jwt from 'jsonwebtoken';
+import { getEntitlement, consumeFreeSearch } from './_stripe.js';
 
 // DACH-Region: einzig erlaubte Länder für die Jobsuche
 const OWED_COUNTRIES = new Set(['Germany', 'Austria', 'Switzerland']);
@@ -194,6 +195,21 @@ export default async function handler(req, res) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
+  let entitlement;
+  try {
+    entitlement = await getEntitlement(decoded.email);
+  } catch (error) {
+    console.error('Entitlement check failed:', error.message);
+    return res.status(500).json({ error: 'Abo-Status konnte nicht geprüft werden. Bitte später erneut versuchen.' });
+  }
+
+  if (!entitlement.hasActiveSubscription && !entitlement.freeSearchAvailable) {
+    return res.status(402).json({
+      error: 'subscription_required',
+      message: 'Deine kostenlose Suche für diesen Monat ist aufgebraucht. Bitte abonniere, um weiterzusuchen.'
+    });
+  }
+
   // cvText kommt direkt vom Client mit (aus localStorage), statt serverseitig
   // über ein per-Request-isoliertes In-Memory-Objekt nachgeschlagen zu werden.
   // Vercel-Serverless-Functions teilen sich keinen Prozessspeicher zwischen
@@ -316,12 +332,24 @@ export default async function handler(req, res) {
 
     jobs = jobs.sort((a, b) => b.match - a.match).slice(0, 10);
 
+    // Nur bei einer echten, erfolgreichen Suche das Freikontingent verbrauchen -
+    // ein Server-/API-Fehler (siehe catch-Block/Fallback unten) darf den
+    // Nutzer nicht um seine kostenlose Suche bringen.
+    if (!entitlement.hasActiveSubscription) {
+      try {
+        await consumeFreeSearch(entitlement.customer);
+      } catch (error) {
+        console.error('Could not record free-search usage:', error.message);
+      }
+    }
+
     res.json({
       jobs,
       aiPowered: !!aiResults,
       aiError: aiResults ? null : (ai.error || 'KI lieferte keine verwertbaren Ergebnisse'),
       cvProfile: aiResults ? ai.cvProfile : null,
-      note: jobs.length === 0 ? shapeNote : null
+      note: jobs.length === 0 ? shapeNote : null,
+      subscribed: entitlement.hasActiveSubscription
     });
   } catch (error) {
     const status = error.response?.status;
