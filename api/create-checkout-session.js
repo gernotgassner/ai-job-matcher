@@ -29,7 +29,6 @@ export default async function handler(req, res) {
       mode: 'subscription',
       customer: customer.id,
       line_items: [{ price: PRICE_ID, quantity: 1 }],
-      billing_mode: { type: 'flexible' },
       allow_promotion_codes: true,
       locale: 'de',
       success_url: `${APP_URL}/?checkout=success`,
