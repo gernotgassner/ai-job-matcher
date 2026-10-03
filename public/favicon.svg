@@ -1,0 +1,10 @@
+<svg width="64" height="64" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+  <rect width="64" height="64" rx="16" fill="#0F172A"/>
+  <!-- Cursor-Pfeil (ein Klick) -->
+  <path d="M22 18 L22 42 L28.5 36.5 L33 46 L38 43.5 L33.5 34 L42 33 Z"
+        fill="#FFFFFF" stroke="#FFFFFF" stroke-width="1" stroke-linejoin="round"/>
+  <!-- Klick-Funken in Emerald -->
+  <path d="M44 16 L44 22" stroke="#10B981" stroke-width="3" stroke-linecap="round"/>
+  <path d="M50 20 L45.5 24" stroke="#10B981" stroke-width="3" stroke-linecap="round"/>
+  <path d="M52 27 L46 27" stroke="#10B981" stroke-width="3" stroke-linecap="round"/>
+</svg>

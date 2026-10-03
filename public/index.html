@@ -3,8 +3,85 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>AI Job Matcher – Finde deinen Traumjob</title>
-  <meta name="description" content="KI-gestützte Jobsuche mit Lebenslaufvergleich" />
+
+  <title>AI Job Matcher – Mit einem Klick zum Traumjob | Jobsuche DACH</title>
+  <meta name="description" content="Mit einem Klick zum Traumjob: Lebenslauf hochladen, KI-Matching starten und passende Jobangebote in Deutschland, Österreich und der Schweiz entdecken – ganz ohne selbst suchen zu müssen." />
+  <meta name="keywords" content="Jobsuche, KI Jobsuche, Traumjob, Lebenslauf Matching, Jobs Deutschland, Jobs Österreich, Jobs Schweiz, AI Job Matcher, Bewerbung, Stellenangebote" />
+  <meta name="robots" content="index, follow" />
+  <meta name="author" content="AI Job Matcher" />
+  <link rel="canonical" href="https://ai-job-matcher-sand.vercel.app/" />
+
+  <!-- Open Graph / Facebook, LinkedIn etc. -->
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://ai-job-matcher-sand.vercel.app/" />
+  <meta property="og:site_name" content="AI Job Matcher" />
+  <meta property="og:locale" content="de_DE" />
+  <meta property="og:title" content="AI Job Matcher – Mit einem Klick zum Traumjob" />
+  <meta property="og:description" content="KI-gestützte Jobsuche für Deutschland, Österreich und die Schweiz. Lebenslauf hochladen – passende Jobs mit Match-Erklärung erhalten." />
+  <meta property="og:image" content="https://ai-job-matcher-sand.vercel.app/og-image.png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+
+  <!-- Twitter / X Card -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="AI Job Matcher – Mit einem Klick zum Traumjob" />
+  <meta name="twitter:description" content="KI-gestützte Jobsuche für Deutschland, Österreich und die Schweiz." />
+  <meta name="twitter:image" content="https://ai-job-matcher-sand.vercel.app/og-image.png" />
+
+  <!-- Favicons -->
+  <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+  <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png" />
+  <link rel="icon" type="image/png" sizes="16x16" href="favicon-16.png" />
+  <link rel="icon" href="favicon.ico" sizes="any" />
+  <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png" />
+  <meta name="theme-color" content="#0F172A" />
+
+  <!-- TODO Google Search Console: Property verifizieren und den bereitgestellten
+       <meta name="google-site-verification" content="..."> Tag hier ergänzen,
+       sobald die Property in der Search Console angelegt ist. -->
+
+  <!-- TODO Google Analytics (GA4): Measurement-ID (G-XXXXXXXXXX) einsetzen und
+       den folgenden Block aktivieren, sobald die GA4-Property angelegt ist.
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-XXXXXXXXXX"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'G-XXXXXXXXXX');
+  </script>
+  -->
+
+  <!-- Structured Data (JSON-LD) für Rich Results -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    "name": "AI Job Matcher",
+    "url": "https://ai-job-matcher-sand.vercel.app/",
+    "description": "Mit einem Klick zum Traumjob: KI-gestützte Jobsuche mit Lebenslaufabgleich für Deutschland, Österreich und die Schweiz.",
+    "applicationCategory": "BusinessApplication",
+    "operatingSystem": "Web",
+    "slogan": "Mit einem Klick zum Traumjob",
+    "offers": {
+      "@type": "Offer",
+      "price": "9.90",
+      "priceCurrency": "CHF",
+      "priceSpecification": {
+        "@type": "UnitPriceSpecification",
+        "price": "9.90",
+        "priceCurrency": "CHF",
+        "billingDuration": "P1M"
+      }
+    },
+    "areaServed": ["Deutschland", "Österreich", "Schweiz"],
+    "inLanguage": "de"
+  }
+  </script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700;800&amp;family=DM+Sans:wght@400;500;600&amp;display=swap" rel="stylesheet" />
+
   <link rel="stylesheet" href="styles.css" />
   <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
@@ -13,14 +90,25 @@
     <!-- Header -->
     <header class="header">
       <div class="header-content">
-        <h1 class="logo">💼 AI Job Matcher</h1>
-        <p class="tagline">Dein intelligenter Jobmatch-Assistant</p>
+        <a href="/" class="brand" aria-label="AI Job Matcher Startseite">
+          <img src="favicon.svg" alt="" width="40" height="40" class="brand-mark" />
+          <span class="brand-name">AI Job Matcher</span>
+        </a>
       </div>
       <button id="logoutBtn" class="btn-logout hidden">Abmelden</button>
     </header>
 
     <!-- Login Section -->
     <section id="loginSection" class="section login-section">
+      <div class="hero-text">
+        <p class="eyebrow">KI-gestützte Jobsuche für Deutschland, Österreich &amp; die Schweiz</p>
+        <h1 class="hero-title">Mit einem Klick zum Traumjob.</h1>
+        <p class="hero-subtitle">
+          Lebenslauf hochladen, Wunschberuf angeben – unsere KI durchsucht
+          passende Stellenangebote für dich und erklärt, warum sie passen.
+          Kein stundenlanges Scrollen mehr nötig.
+        </p>
+      </div>
       <div class="login-card">
         <h2>Willkommen zurück! 👋</h2>
         <p>Finde Jobangebote, die perfekt zu dir passen.</p>
