@@ -1,6 +1,6 @@
-# AI Job Matcher
+# SkillMatcher (von JobSense AI)
 
-Prototyp mit Testlogin (bzw. Google-Login), lokalem CV-Upload, KI-gestütztem Job-Matching mit Zusammenfassung und dauerhaften Favoriten. Die Jobsuche ist auf die DACH-Region (Deutschland, Österreich, Schweiz) beschränkt.
+Web-App mit Google-Login, lokalem CV-Upload, KI-gestütztem Job-Matching mit transparenter Begründung und dauerhaften Favoriten. Die Jobsuche ist auf die DACH-Region (Deutschland, Österreich, Schweiz) beschränkt.
 
 ## Datenschutz im Prototyp
 

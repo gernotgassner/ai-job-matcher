@@ -29,7 +29,7 @@ export async function getOrCreateCustomer(email) {
   const stripe = getStripe();
   const existing = await stripe.customers.list({ email, limit: 1 });
   if (existing.data.length > 0) return existing.data[0];
-  return stripe.customers.create({ email, metadata: { app: 'ai-job-matcher' } });
+  return stripe.customers.create({ email, metadata: { app: 'skillmatcher' } });
 }
 
 // Prüft Abo-Status und Kontingent für die kostenlose Suche. Die Stripe-

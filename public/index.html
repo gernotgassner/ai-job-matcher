@@ -4,28 +4,28 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-  <title>AI Job Matcher – Mit einem Klick zum Traumjob | Jobsuche DACH</title>
-  <meta name="description" content="Mit einem Klick zum Traumjob: Lebenslauf hochladen, KI-Matching starten und passende Jobangebote in Deutschland, Österreich und der Schweiz entdecken – ganz ohne selbst suchen zu müssen." />
-  <meta name="keywords" content="Jobsuche, KI Jobsuche, Traumjob, Lebenslauf Matching, Jobs Deutschland, Jobs Österreich, Jobs Schweiz, AI Job Matcher, Bewerbung, Stellenangebote" />
+  <title>SkillMatcher – KI-Jobmatching für deinen Traumjob | JobSense AI</title>
+  <meta name="description" content="SkillMatcher von JobSense AI liefert präzise KI-Jobmatches basierend auf deinen Fähigkeiten. Finde in Sekunden passende Stellen – schnell, intelligent und individuell." />
+  <meta name="keywords" content="Jobsuche, KI Jobmatching, SkillMatcher, JobSense AI, Skill-Profiling, Jobs Deutschland, Jobs Österreich, Jobs Schweiz, Bewerbung, Stellenangebote" />
   <meta name="robots" content="index, follow" />
-  <meta name="author" content="AI Job Matcher" />
+  <meta name="author" content="JobSense AI" />
   <link rel="canonical" href="https://ai-job-matcher-sand.vercel.app/" />
 
   <!-- Open Graph / Facebook, LinkedIn etc. -->
   <meta property="og:type" content="website" />
   <meta property="og:url" content="https://ai-job-matcher-sand.vercel.app/" />
-  <meta property="og:site_name" content="AI Job Matcher" />
+  <meta property="og:site_name" content="SkillMatcher" />
   <meta property="og:locale" content="de_DE" />
-  <meta property="og:title" content="AI Job Matcher – Mit einem Klick zum Traumjob" />
-  <meta property="og:description" content="KI-gestützte Jobsuche für Deutschland, Österreich und die Schweiz. Lebenslauf hochladen – passende Jobs mit Match-Erklärung erhalten." />
+  <meta property="og:title" content="SkillMatcher – Dein KI-Match für den perfekten Job" />
+  <meta property="og:description" content="SkillMatcher von JobSense AI liefert präzise KI-Jobmatches basierend auf deinen Fähigkeiten, Erfahrungen und Zielen." />
   <meta property="og:image" content="https://ai-job-matcher-sand.vercel.app/og-image.png" />
   <meta property="og:image:width" content="1200" />
   <meta property="og:image:height" content="630" />
 
   <!-- Twitter / X Card -->
   <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:title" content="AI Job Matcher – Mit einem Klick zum Traumjob" />
-  <meta name="twitter:description" content="KI-gestützte Jobsuche für Deutschland, Österreich und die Schweiz." />
+  <meta name="twitter:title" content="SkillMatcher – Dein KI-Match für den perfekten Job" />
+  <meta name="twitter:description" content="Präzise KI-Jobmatches basierend auf deinen Fähigkeiten. Von JobSense AI." />
   <meta name="twitter:image" content="https://ai-job-matcher-sand.vercel.app/og-image.png" />
 
   <!-- Favicons -->
@@ -56,12 +56,16 @@
   {
     "@context": "https://schema.org",
     "@type": "WebApplication",
-    "name": "AI Job Matcher",
+    "name": "SkillMatcher",
     "url": "https://ai-job-matcher-sand.vercel.app/",
-    "description": "Mit einem Klick zum Traumjob: KI-gestützte Jobsuche mit Lebenslaufabgleich für Deutschland, Österreich und die Schweiz.",
+    "description": "SkillMatcher von JobSense AI liefert präzise KI-Jobmatches basierend auf Fähigkeiten, Erfahrung und Karriereziel – für Deutschland, Österreich und die Schweiz.",
     "applicationCategory": "BusinessApplication",
     "operatingSystem": "Web",
-    "slogan": "Mit einem Klick zum Traumjob",
+    "slogan": "Dein KI-Match für den perfekten Job",
+    "brand": {
+      "@type": "Organization",
+      "name": "JobSense AI"
+    },
     "offers": {
       "@type": "Offer",
       "price": "9.90",
@@ -90,35 +94,120 @@
     <!-- Header -->
     <header class="header">
       <div class="header-content">
-        <a href="/" class="brand" aria-label="AI Job Matcher Startseite">
+        <a href="/" class="brand" aria-label="SkillMatcher Startseite">
           <img src="favicon.svg" alt="" width="40" height="40" class="brand-mark" />
-          <span class="brand-name">AI Job Matcher</span>
+          <span class="brand-name">SkillMatcher</span>
         </a>
       </div>
       <button id="logoutBtn" class="btn-logout hidden">Abmelden</button>
     </header>
 
-    <!-- Login Section -->
+    <!-- Login / Landing Section -->
     <section id="loginSection" class="section login-section">
-      <div class="hero-text">
-        <p class="eyebrow">KI-gestützte Jobsuche für Deutschland, Österreich &amp; die Schweiz</p>
-        <h1 class="hero-title">Mit einem Klick zum Traumjob.</h1>
-        <p class="hero-subtitle">
-          Lebenslauf hochladen, Wunschberuf angeben – unsere KI durchsucht
-          passende Stellenangebote für dich und erklärt, warum sie passen.
-          Kein stundenlanges Scrollen mehr nötig.
+
+      <!-- Hero -->
+      <div class="hero">
+        <div class="hero-text">
+          <p class="eyebrow">Die intelligente Matching-Engine, die deine Skills versteht</p>
+          <h1 class="hero-title">SkillMatcher – Dein KI-Match für den perfekten Job</h1>
+          <p class="hero-subtitle">
+            Finde in Sekunden Stellen, die wirklich zu deinen Fähigkeiten, Interessen
+            und Zielen passen. JobSense AI bringt Klarheit in deine Karriere –
+            präzise, schnell und individuell.
+          </p>
+        </div>
+        <div id="loginCard" class="login-card">
+          <h2>Willkommen zurück! 👋</h2>
+          <p>Finde Jobangebote, die perfekt zu dir passen.</p>
+          <div id="googleButtonContainer" class="google-button-container"></div>
+        </div>
+      </div>
+
+      <!-- Elevator Pitch -->
+      <div class="pitch-box">
+        <p>
+          <strong>SkillMatcher</strong> analysiert deine Fähigkeiten, Erfahrungen und
+          Karriereziele und liefert dir sofort passende Job-Matches. Keine endlosen
+          Suchlisten, keine Zeitverschwendung – nur präzise Treffer.
         </p>
       </div>
-      <div class="login-card">
-        <h2>Willkommen zurück! 👋</h2>
-        <p>Finde Jobangebote, die perfekt zu dir passen.</p>
-        
-        <div id="googleButtonContainer" class="google-button-container"></div>
 
-        <p class="info-text">
-          ℹ️ Die erste Jobsuche pro Monat ist kostenlos. Ab der zweiten Suche
-          brauchst du das Abo (CHF 9.90/Monat, monatlich kündbar).
+      <!-- Benefit-Karten -->
+      <div class="benefits-grid">
+        <div class="benefit-card">
+          <span class="benefit-icon">🎯</span>
+          <h3>Präzise KI-Matches</h3>
+          <p>Unsere AI versteht deine Skills besser als jede klassische Jobplattform.</p>
+        </div>
+        <div class="benefit-card">
+          <span class="benefit-icon">⚡</span>
+          <h3>Sofortige Ergebnisse</h3>
+          <p>In wenigen Sekunden erhältst du eine kuratierte Liste relevanter Jobs.</p>
+        </div>
+        <div class="benefit-card">
+          <span class="benefit-icon">🚀</span>
+          <h3>Karriere-Boost</h3>
+          <p>Mehr passende Bewerbungen, höhere Erfolgsquote, weniger Frust.</p>
+        </div>
+      </div>
+
+      <!-- USPs -->
+      <div class="usp-section">
+        <h2>Warum SkillMatcher?</h2>
+        <ul class="usp-list">
+          <li><span class="usp-check">✓</span> AI-Matching statt Keyword-Suche</li>
+          <li><span class="usp-check">✓</span> Skill-Profiling in Echtzeit</li>
+          <li><span class="usp-check">✓</span> Job-Empfehlungen nach Erfahrung &amp; Stärken</li>
+          <li><span class="usp-check">✓</span> Automatische Marktanalyse</li>
+          <li><span class="usp-check">✓</span> 100 % Fokus auf Relevanz</li>
+          <li><span class="usp-check">✓</span> Keine überflüssigen Listings</li>
+        </ul>
+      </div>
+
+      <!-- Wie funktioniert's -->
+      <div class="how-it-works">
+        <h2>Wie funktioniert's?</h2>
+        <p class="section-subtitle">
+          Transparentes KI-Matching statt Black Box – so kommt dein Match-Ergebnis zustande.
         </p>
+        <div class="steps-grid">
+          <div class="step-item">
+            <span class="step-number">1</span>
+            <h3>Lebenslauf hochladen</h3>
+            <p>Dein CV wird direkt in deinem Browser gelesen. Die KI erkennt automatisch deine Skills, Erfahrung und Seniorität – nichts davon landet in einer Datenbank.</p>
+          </div>
+          <div class="step-item">
+            <span class="step-number">2</span>
+            <h3>Wunschberuf &amp; Ziele angeben</h3>
+            <p>Du nennst deinen Wunschberuf und optional, worauf es dir ankommt – z. B. Remote-Anteil oder Führungsverantwortung.</p>
+          </div>
+          <div class="step-item">
+            <span class="step-number">3</span>
+            <h3>KI gleicht vier Kriterien ab</h3>
+            <p>SkillMatcher bewertet jede Stelle nach Fachskills, Erfahrung, Passung zum Wunschberuf und deinen individuellen Zielen – gewichtet statt geraten.</p>
+          </div>
+          <div class="step-item">
+            <span class="step-number">4</span>
+            <h3>Nachvollziehbares Ergebnis</h3>
+            <p>Du siehst nicht nur den Match-Wert, sondern auch die Begründung dahinter – Stelle für Stelle, Kriterium für Kriterium.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Trust-Elemente -->
+      <div class="trust-row">
+        <div class="trust-item"><span>🤖</span> KI-gestützte Matching-Engine</div>
+        <div class="trust-item"><span>🔒</span> Lebenslauf bleibt in deinem Browser</div>
+        <div class="trust-item"><span>✅</span> Keine Fake-Listings</div>
+        <div class="trust-item"><span>📊</span> Transparente Ergebnisse</div>
+        <div class="trust-item"><span>🏢</span> Technologie von JobSense AI</div>
+      </div>
+
+      <!-- Finale CTA -->
+      <div class="final-cta">
+        <h2>Starte jetzt dein persönliches Job-Matching</h2>
+        <p>Lebenslauf hochladen, Wunschberuf angeben und sofort präzise Job-Empfehlungen erhalten.</p>
+        <a href="#loginCard" class="btn btn-primary cta-btn">👉 SkillMatcher starten</a>
       </div>
     </section>
 
