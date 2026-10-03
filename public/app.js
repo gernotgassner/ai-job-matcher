@@ -577,4 +577,55 @@ window.addEventListener('DOMContentLoaded', () => {
   }
 
   initGoogleLogin();
+  initCookieConsent();
 });
+
+// --- Cookie-Einwilligung -----------------------------------------------
+// Aktuell setzt diese App selbst keine Cookies (Login/CV/Favoriten laufen
+// über localStorage). Google Sign-In und Stripe Checkout setzen auf ihren
+// eigenen Domains notwendige Cookies, die nicht einwilligungspflichtig sind.
+// Analytics (GA4) ist einwilligungspflichtig und wird daher erst NACH
+// Zustimmung geladen - siehe maybeLoadAnalytics().
+const COOKIE_CONSENT_KEY = 'jobMatcherCookieConsent'; // 'all' | 'necessary'
+
+function initCookieConsent() {
+  const consent = localStorage.getItem(COOKIE_CONSENT_KEY);
+  if (!consent) {
+    $('cookieBanner').classList.remove('hidden');
+  } else if (consent === 'all') {
+    maybeLoadAnalytics();
+  }
+
+  $('cookieAcceptBtn').addEventListener('click', () => {
+    localStorage.setItem(COOKIE_CONSENT_KEY, 'all');
+    $('cookieBanner').classList.add('hidden');
+    maybeLoadAnalytics();
+  });
+
+  $('cookieRejectBtn').addEventListener('click', () => {
+    localStorage.setItem(COOKIE_CONSENT_KEY, 'necessary');
+    $('cookieBanner').classList.add('hidden');
+  });
+
+  // Erlaubt es, die Einstellungen über den Footer-Link erneut zu öffnen
+  $('footerCookieBtn').addEventListener('click', () => {
+    $('cookieBanner').classList.remove('hidden');
+  });
+}
+
+function maybeLoadAnalytics() {
+  const id = window.GA_MEASUREMENT_ID;
+  if (!id || document.getElementById('ga4-script')) return;
+
+  const script = document.createElement('script');
+  script.id = 'ga4-script';
+  script.async = true;
+  script.src = `https://www.googletagmanager.com/gtag/js?id=${id}`;
+  document.head.appendChild(script);
+
+  window.dataLayer = window.dataLayer || [];
+  function gtag() { window.dataLayer.push(arguments); }
+  window.gtag = gtag;
+  gtag('js', new Date());
+  gtag('config', id, { anonymize_ip: true });
+}

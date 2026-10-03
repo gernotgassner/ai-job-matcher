@@ -40,16 +40,11 @@
        <meta name="google-site-verification" content="..."> Tag hier ergänzen,
        sobald die Property in der Search Console angelegt ist. -->
 
-  <!-- TODO Google Analytics (GA4): Measurement-ID (G-XXXXXXXXXX) einsetzen und
-       den folgenden Block aktivieren, sobald die GA4-Property angelegt ist.
-  <script async src="https://www.googletagmanager.com/gtag/js?id=G-XXXXXXXXXX"></script>
-  <script>
-    window.dataLayer = window.dataLayer || [];
-    function gtag(){dataLayer.push(arguments);}
-    gtag('js', new Date());
-    gtag('config', 'G-XXXXXXXXXX');
-  </script>
-  -->
+  <!-- Google Analytics (GA4): Die Measurement-ID unten eintragen, sobald die
+       GA4-Property angelegt ist. Das Skript lädt NICHT automatisch - app.js
+       lädt es erst nach Zustimmung im Cookie-Banner (GDPR/nDSG-konform).
+       Siehe maybeLoadAnalytics() in app.js. -->
+  <script>window.GA_MEASUREMENT_ID = ''; /* z. B. 'G-XXXXXXXXXX' */</script>
 
   <!-- Structured Data (JSON-LD) für Rich Results -->
   <script type="application/ld+json">
@@ -325,6 +320,32 @@
         </div>
       </div>
     </section>
+  </div>
+
+  <footer class="site-footer">
+    <div class="footer-content">
+      <p class="footer-brand">SkillMatcher <span>by JobSense AI</span></p>
+      <ul class="footer-links">
+        <li><a href="agb.html">AGB</a></li>
+        <li><a href="datenschutz.html">Datenschutz</a></li>
+        <li><a href="impressum.html">Impressum</a></li>
+        <li><button type="button" id="footerCookieBtn">Cookie-Einstellungen</button></li>
+      </ul>
+    </div>
+  </footer>
+
+  <div id="cookieBanner" class="cookie-banner hidden">
+    <div class="cookie-banner-inner">
+      <p>
+        Wir verwenden nur technisch notwendige Datenspeicherung (localStorage) für Login, Lebenslauf
+        und Favoriten. Mit deiner Zustimmung nutzen wir zusätzlich Google Analytics zur anonymisierten
+        Reichweitenmessung. Mehr dazu in unserer <a href="datenschutz.html">Datenschutzerklärung</a>.
+      </p>
+      <div class="cookie-banner-actions">
+        <button type="button" id="cookieRejectBtn" class="btn btn-secondary">Nur notwendige</button>
+        <button type="button" id="cookieAcceptBtn" class="btn btn-primary">Alle akzeptieren</button>
+      </div>
+    </div>
   </div>
 
   <!-- Textextraktion für PDF/DOCX im Browser (Lebenslauf verlässt dafür den Browser nicht) -->

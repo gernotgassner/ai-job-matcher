@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Datenschutzerklärung | SkillMatcher</title>
+  <meta name="robots" content="noindex, follow" />
+  <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="header" style="position: static; margin: 0; padding: 16px 20px;">
+    <div class="header-content">
+      <a href="/" class="brand" aria-label="SkillMatcher Startseite">
+        <img src="favicon.svg" alt="" width="40" height="40" class="brand-mark" />
+        <span class="brand-name">SkillMatcher</span>
+      </a>
+    </div>
+  </header>
+
+  <main class="legal-page">
+    <a href="/" class="back-link">← Zurück zu SkillMatcher</a>
+    <h1>Datenschutzerklärung</h1>
+    <p class="legal-updated">Stand: Oktober 2026</p>
+
+    <div class="draft-notice">
+      ⚠️ <strong>Rechtlich ungeprüfter Entwurf, keine Rechtsberatung.</strong>
+      Dieser Text beschreibt die Datenverarbeitung so, wie die Anwendung sie
+      zum oben genannten Stand tatsächlich technisch umsetzt. Er ersetzt
+      keine Prüfung durch eine auf Datenschutzrecht (DSGVO/nDSG) spezialisierte
+      Fachperson – insbesondere die mit <span class="placeholder">[PLATZHALTER]</span>
+      markierten Stellen müssen vor Veröffentlichung ergänzt werden.
+    </div>
+
+    <h2>1. Verantwortlicher</h2>
+    <p>
+      <span class="placeholder">[Name/Firma, Anschrift wie im Impressum]</span><br />
+      E-Mail: <span class="placeholder">[datenschutz@beispiel.ch]</span>
+    </p>
+    <p>
+      Je nachdem, ob sich Nutzer:innen aus der EU oder aus der Schweiz an
+      SkillMatcher wenden, gelten die Datenschutz-Grundverordnung (DSGVO) und/oder
+      das Schweizer Bundesgesetz über den Datenschutz (nDSG) parallel. Wir
+      orientieren uns an beiden Regelwerken und halten uns an den jeweils
+      strengeren Massstab.
+    </p>
+
+    <h2>2. Grundprinzip: so wenig Speicherung wie möglich</h2>
+    <p>
+      SkillMatcher betreibt bewusst <strong>keine eigene Datenbank</strong>. Es gibt
+      keine serverseitig gespeicherten Nutzerkonten, Lebensläufe oder Firmendaten.
+      Folgende Daten verlassen deinen Browser nie dauerhaft bzw. werden nirgends
+      von uns persistent gespeichert:
+    </p>
+    <ul>
+      <li>Der Inhalt deines Lebenslaufs (liegt ausschliesslich im <code>localStorage</code> deines Browsers)</li>
+      <li>Deine gespeicherten Favoriten</li>
+      <li>Dein Wunschberuf und dein Kurzbeschrieb</li>
+    </ul>
+    <p>
+      Diese Daten werden zwar bei jeder Jobsuche an unsere Server <em>übermittelt</em>,
+      um die Suche und KI-Bewertung durchzuführen (siehe Abschnitt 4) – sie werden
+      dort aber nach Beantwortung der Anfrage nicht gespeichert. Eine Ausnahme bildet
+      die E-Mail-Adresse im Zusammenhang mit deinem Abo, siehe Abschnitt 5.
+    </p>
+
+    <h2>3. Login mit Google (OAuth 2.0)</h2>
+    <p>
+      Die Anmeldung erfolgt über „Google Sign-In". Dabei prüft unser Server
+      ausschliesslich das von Google ausgestellte, signierte Token und liest daraus
+      deine E-Mail-Adresse aus. Wir erhalten und verarbeiten <strong>keine
+      Passwörter</strong> – diese bleiben vollständig bei Google. Aus der
+      E-Mail-Adresse erzeugen wir ein eigenes Sitzungs-Token (JWT), das in deinem
+      Browser gespeichert wird und uns gegenüber deine Anmeldung bestätigt; eine
+      serverseitige Session wird dafür nicht angelegt.
+    </p>
+    <p>
+      Empfänger: Google Ireland Limited bzw. Google LLC (USA), im Rahmen des
+      Login-Vorgangs. Rechtsgrundlage: Vertragserfüllung (Art. 6 Abs. 1 lit. b DSGVO)
+      bzw. Einwilligung durch aktive Nutzung des „Mit Google anmelden"-Buttons.
+      Weitere Informationen:
+      <a href="https://policies.google.com/privacy" target="_blank" rel="noopener">Google-Datenschutzerklärung</a>.
+    </p>
+
+    <h2>4. Lebenslauf &amp; KI-gestütztes Matching</h2>
+    <p>
+      Wenn du einen Lebenslauf hochlädst, wird dieser <strong>direkt in deinem
+      Browser</strong> (PDF/DOCX/TXT) in Text umgewandelt und lokal in deinem
+      <code>localStorage</code> abgelegt – nicht auf unseren Servern.
+    </p>
+    <p>
+      Startest du eine Suche, wird dieser Text zusammen mit deinem Wunschberuf und
+      Kurzbeschrieb <strong>einmalig pro Anfrage</strong> an folgende Dienste
+      übermittelt, damit die KI eine Bewertung vornehmen kann:
+    </p>
+    <ul>
+      <li>OpenAI, L.L.C. (USA) bzw. als Rückfalloption Anthropic PBC (USA) – zur inhaltlichen Analyse und Bewertung der Stellenanzeigen.</li>
+      <li>Der Betreiber der verwendeten Jobsuch-Schnittstelle (JSearch über RapidAPI) – erhält ausschliesslich Suchbegriffe (Wunschberuf, Land), nicht deinen Lebenslauf.</li>
+    </ul>
+    <p>
+      Diese Anbieter verarbeiten die Daten nach unserem Kenntnisstand nicht zum
+      Training eigener Modelle über API-Zugänge und löschen Anfragedaten nach
+      kurzer Zeit gemäss ihren jeweiligen Richtlinien. Wir können dies als
+      Auftraggeber nicht unabhängig verifizieren; massgeblich sind die jeweils
+      aktuellen Datenschutz- und Verarbeitungsbedingungen der Anbieter. Da es
+      sich um Anbieter mit Sitz in den USA handelt, findet eine
+      Drittlandübermittlung statt. <span class="placeholder">[Hinweis für Betreiber: Abschluss
+      der jeweiligen Data Processing Agreements/Standardvertragsklauseln mit
+      OpenAI, Anthropic und RapidAPI prüfen und hier referenzieren.]</span>
+    </p>
+    <p>
+      Dein Lebenslauf wird von uns server- oder datenbankseitig zu keinem
+      Zeitpunkt gespeichert. Du kannst ihn jederzeit über „Lebenslauf löschen"
+      aus deinem Browser entfernen.
+    </p>
+
+    <h2>5. Zahlungsdaten &amp; Abo (Stripe)</h2>
+    <p>
+      Die Verarbeitung von Zahlungen für das SkillMatcher-Abo erfolgt vollständig
+      über Stripe Payments Europe, Ltd. bzw. Stripe, Inc. („Stripe"). Die
+      Zahlungsseite (Checkout) sowie das Kundenportal werden direkt von Stripe
+      gehostet – <strong>Kreditkartendaten erreichen unsere Server zu keinem
+      Zeitpunkt</strong>, Stripe ist PCI-DSS-Level-1-zertifiziert und erfüllt die
+      Vorgaben zur starken Kundenauthentifizierung (3-D Secure/SCA).
+    </p>
+    <p>
+      <strong>Richtigstellung:</strong> Deine E-Mail-Adresse wird bei Stripe als
+      Kunden-Stammdatum gespeichert, solange dein Zugang besteht – das ist
+      notwendig, um dein Abo zu verwalten, deine Rechnungen zuzustellen und zu
+      prüfen, ob du deine kostenlose monatliche Suche bereits verwendet hast.
+      Diese Information liegt ausschliesslich bei Stripe, nicht in einer
+      eigenen Datenbank von uns. Rechtsgrundlage: Vertragserfüllung
+      (Art. 6 Abs. 1 lit. b DSGVO) sowie gesetzliche Aufbewahrungspflichten für
+      Rechnungsdaten.
+    </p>
+    <p>Weitere Informationen: <a href="https://stripe.com/de/privacy" target="_blank" rel="noopener">Stripe-Datenschutzerklärung</a>.</p>
+
+    <h2>6. Hosting &amp; technische Protokolle</h2>
+    <p>
+      Diese Anwendung wird bei Vercel Inc. (USA) gehostet. Wie bei praktisch
+      jedem Website-Hosting üblich, fallen dabei technische Zugriffsprotokolle
+      an (z. B. IP-Adresse, Zeitstempel, aufgerufene URL), die kurzfristig zu
+      Sicherheits- und Betriebszwecken verarbeitet werden. Wir greifen auf diese
+      Protokolle im Regelbetrieb nicht gezielt personenbezogen zu.
+    </p>
+
+    <h2>7. Cookies &amp; lokale Speicherung</h2>
+    <p>
+      SkillMatcher selbst setzt <strong>keine eigenen Tracking-Cookies</strong>.
+      Anmeldestatus, Lebenslauf und Favoriten werden im <code>localStorage</code>
+      deines Browsers abgelegt – das ist technisch kein Cookie, aber ebenfalls
+      lokal auf deinem Gerät gespeicherte Information, die du jederzeit über die
+      Browser-Einstellungen oder die Funktionen in der App (z. B. „Abmelden",
+      „Lebenslauf löschen") entfernen kannst.
+    </p>
+    <p>
+      Beim Google-Login und bei der Weiterleitung zu Stripe Checkout setzen
+      diese Anbieter auf ihren eigenen Domains technisch notwendige Cookies
+      (z. B. zur Betrugserkennung oder Sitzungsführung), auf die wir keinen
+      Einfluss haben.
+    </p>
+    <p>
+      Optional nutzen wir Google Analytics (GA4) zur anonymisierten
+      Reichweitenmessung. Dieses Skript wird <strong>erst geladen, wenn du im
+      Cookie-Banner aktiv zustimmst</strong> („Alle akzeptieren"); wählst du „Nur
+      notwendige", bleibt es deaktiviert. Ist Google Analytics aktiv, wird die
+      IP-Adresse vor der Auswertung gekürzt (IP-Anonymisierung). Du kannst deine
+      Auswahl jederzeit über „Cookie-Einstellungen" im Footer ändern.
+    </p>
+
+    <h2>8. Übersicht aller eingebundenen Dienste</h2>
+    <table>
+      <tr><th>Dienst</th><th>Zweck</th><th>Sitz / Drittland</th></tr>
+      <tr><td>Google LLC</td><td>Login (OAuth), optional Analytics</td><td>USA</td></tr>
+      <tr><td>OpenAI / Anthropic</td><td>KI-Analyse von Lebenslauf &amp; Stellen</td><td>USA</td></tr>
+      <tr><td>RapidAPI / JSearch</td><td>Jobsuche (Suchbegriffe)</td><td><span class="placeholder">[je nach Betreiber]</span></td></tr>
+      <tr><td>Stripe</td><td>Zahlungsabwicklung, Kundenverwaltung</td><td>EU/USA</td></tr>
+      <tr><td>Vercel Inc.</td><td>Hosting</td><td>USA</td></tr>
+    </table>
+
+    <h2>9. Deine Rechte</h2>
+    <p>
+      Im Rahmen der geltenden Datenschutzgesetze (DSGVO Art. 15–21, nDSG) hast du
+      das Recht auf Auskunft, Berichtigung, Löschung, Einschränkung der
+      Verarbeitung, Datenübertragbarkeit sowie Widerspruch. Da wir die meisten
+      Daten gar nicht bei uns speichern, kannst du Lebenslauf und Favoriten
+      jederzeit selbst über die App-Funktionen löschen. Für Auskünfte zu bei
+      Stripe gespeicherten Daten wende dich an
+      <span class="placeholder">[datenschutz@beispiel.ch]</span>; zusätzlich steht dir das
+      Beschwerderecht bei der zuständigen Aufsichtsbehörde zu.
+    </p>
+
+    <h2>10. Änderungen dieser Erklärung</h2>
+    <p>
+      Wir passen diese Datenschutzerklärung an, sobald sich die Verarbeitung
+      ändert (z. B. bei Aktivierung weiterer Dienste). Die jeweils aktuelle
+      Version ist auf dieser Seite abrufbar.
+    </p>
+  </main>
+
+  <footer class="site-footer">
+    <div class="footer-content">
+      <p class="footer-brand">SkillMatcher <span>by JobSense AI</span></p>
+      <ul class="footer-links">
+        <li><a href="agb.html">AGB</a></li>
+        <li><a href="datenschutz.html">Datenschutz</a></li>
+        <li><a href="impressum.html">Impressum</a></li>
+      </ul>
+    </div>
+  </footer>
+</body>
+</html>
