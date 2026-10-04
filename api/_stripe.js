@@ -16,12 +16,6 @@ export function getStripe() {
   return stripeClient;
 }
 
-// Aktueller Abrechnungsmonat in UTC, z. B. "2026-09" - dient als Schlüssel
-// für "1 kostenlose Suche pro Monat".
-export function currentPeriodKey(date = new Date()) {
-  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}`;
-}
-
 // Findet den Stripe-Customer zu einer E-Mail oder legt einen neuen an.
 // Die E-Mail-Adresse (aus dem verifizierten Google-Login) ist der einzige
 // Schlüssel, den diese App ohne eigene Datenbank hat.
@@ -32,10 +26,9 @@ export async function getOrCreateCustomer(email) {
   return stripe.customers.create({ email, metadata: { app: 'skillmatcher' } });
 }
 
-// Prüft Abo-Status und Kontingent für die kostenlose Suche. Die Stripe-
-// Kunden-Metadaten dienen hier als einzige Persistenz (keine eigene DB):
-// metadata.free_search_period speichert den Monat, in dem die kostenlose
-// Suche bereits verbraucht wurde.
+// Abo-Status. Seit der Produktentscheidung "Suche immer möglich, Abo steuert
+// nur noch die Ergebnistiefe" gibt es kein Freikontingent/keine Monats-
+// Zählung mehr - entsprechend auch keine Metadaten-Schreibvorgänge mehr nötig.
 export async function getEntitlement(email) {
   const stripe = getStripe();
   const customer = await getOrCreateCustomer(email);
@@ -47,23 +40,21 @@ export async function getEntitlement(email) {
   });
   const activeSub = subs.data.find((s) => ['active', 'trialing', 'past_due'].includes(s.status));
 
-  const period = currentPeriodKey();
-  const freeSearchUsed = customer.metadata?.free_search_period === period;
-
   return {
     customer,
     hasActiveSubscription: !!activeSub,
-    subscription: activeSub || null,
-    freeSearchAvailable: !activeSub && !freeSearchUsed
+    subscription: activeSub || null
   };
 }
 
-// Markiert die kostenlose Suche des laufenden Monats als verbraucht. Nur nach
-// einer TATSÄCHLICH erfolgreichen Suche aufrufen, nicht bei Fehlern/Fallback -
-// sonst verliert ein Nutzer sein Freikontingent durch einen Server-Fehler.
-export async function consumeFreeSearch(customer) {
-  const stripe = getStripe();
-  await stripe.customers.update(customer.id, {
-    metadata: { ...customer.metadata, free_search_period: currentPeriodKey() }
-  });
+// Zeigt technische Fehlerdetails (Statuscodes, Rohantworten Dritter) nur
+// Superusern an - reguläre Nutzer sehen ausschliesslich generische,
+// freundliche Meldungen. Liste kommt aus der Env-Var SUPERUSER_EMAILS
+// (kommagetrennt, z. B. "admin@example.com,dev@example.com").
+export function isSuperuser(email) {
+  const list = (process.env.SUPERUSER_EMAILS || '')
+    .split(',')
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean);
+  return !!email && list.includes(email.toLowerCase());
 }

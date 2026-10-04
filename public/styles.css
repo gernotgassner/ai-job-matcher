@@ -1249,3 +1249,175 @@ textarea:focus {
 .legal-page a {
   color: var(--accent-dark);
 }
+
+/* ============ Profil: Support-Aktionen ============ */
+.profile-support-actions {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.profile-support-actions .btn {
+  font-size: 0.85rem;
+  padding: 9px 16px;
+}
+
+/* ============ Modals (Feedback, Störung, Abo-Vorteile) ============ */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: rgba(15, 23, 42, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.modal-card {
+  position: relative;
+  background: var(--bg-primary);
+  border-radius: var(--radius);
+  padding: 32px 28px;
+  max-width: 460px;
+  width: 100%;
+  box-shadow: var(--shadow-lg);
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.modal-card h3 {
+  font-family: var(--font-heading);
+  margin-bottom: 8px;
+}
+
+.modal-card textarea {
+  margin: 14px 0;
+}
+
+.modal-close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 30px;
+  height: 30px;
+  border: none;
+  background: var(--bg-tertiary);
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+}
+
+.modal-close:hover {
+  background: var(--border-color);
+}
+
+.modal-benefit-list {
+  list-style: none;
+  margin: 18px 0 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.modal-benefit-list li {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 0.92rem;
+  color: var(--text-primary);
+}
+
+/* ============ CV-Profil-Erweiterungen: Wunschberuf-Abgleich & Tipps ============ */
+.career-goal-fit {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  margin-bottom: 16px;
+  font-size: 0.9rem;
+}
+
+.career-goal-fit strong {
+  display: block;
+  margin-bottom: 4px;
+}
+
+.improvement-tips {
+  background: rgba(16, 185, 129, 0.08);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  margin-bottom: 16px;
+  font-size: 0.9rem;
+  color: var(--text-primary);
+}
+
+.improvement-tips strong {
+  display: block;
+  margin-bottom: 4px;
+}
+
+/* ============ Job-Karten: Best-Match, Quelle, Tier, Wachstumstipp ============ */
+.best-match-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--primary);
+  color: white;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 3px 9px;
+  border-radius: 999px;
+  margin-right: 8px;
+  letter-spacing: 0.02em;
+}
+
+.job-source {
+  display: inline-block;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  margin-left: 8px;
+}
+
+.job-card.tier-more {
+  background: var(--bg-tertiary);
+}
+
+.growth-tip-box {
+  background: rgba(16, 185, 129, 0.08);
+  border-left: 3px solid var(--accent);
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin: 10px 0;
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
+.btn-growth {
+  background: var(--bg-primary);
+  color: var(--accent-dark);
+  border: 1px solid rgba(16, 185, 129, 0.4);
+}
+
+.btn-growth:hover {
+  background: rgba(16, 185, 129, 0.08);
+}
+
+/* Favoriten: Entfernen-Button */
+.favorite-remove-btn {
+  background: none;
+  border: none;
+  color: var(--danger);
+  font-size: 0.82rem;
+  cursor: pointer;
+  padding: 4px 8px;
+}
+
+.favorite-remove-btn:hover {
+  text-decoration: underline;
+}

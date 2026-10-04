@@ -12,11 +12,13 @@ Ist die Umgebungsvariable `OPENAI_API_KEY` (bevorzugt, Modell per `OPENAI_MODEL`
 
 ## Preismodell & Zugriff
 
-Jeder eingeloggte Nutzer hat 1 kostenlose Jobsuche pro Kalendermonat. Ab der 2. Suche ist ein Abo (CHF 9.90/Monat, monatlich zum Periodenende kündbar, verlängert sich sonst automatisch) über Stripe Checkout nötig. Abo-Status und Freikontingent werden serverseitig live gegen Stripe geprüft (Kunden-Metadata, keine eigene Datenbank) - ein Client-seitiger Reset (z. B. localStorage löschen) hat keinen Einfluss darauf. Verwaltung/Kündigung läuft über das Stripe-Kundenportal.
+Die Jobsuche selbst ist für alle unbegrenzt oft möglich (kein Freikontingent, keine Sperre). Das Abo (CHF 9.90/Monat, monatlich zum Periodenende kündbar, verlängert sich sonst automatisch über Stripe Checkout) steuert stattdessen die Ergebnistiefe:
 
-## Match-Bewertung
+- **Ohne Abo:** bis zu 3 Top-Matches (ab 85 % Match) pro Suche.
+- **Mit Abo:** bis zu 10 Top-Matches (ab 85 %) plus bis zu 10 weitere Treffer im Bereich 50-84 %, ein hervorgehobener „Best Match", eine Wachstumsempfehlung je Job („was fehlt dir zu 100 %?") sowie bei erneutem Klick auf „Jobs durchsuchen" frische Ergebnisse (Cursor-Pagination statt derselben Seite).
+- Erreicht keine Stelle mindestens 50 % Match, zeigt die App stattdessen eine KI-generierte Empfehlung, wie sich die Trefferquote verbessern lässt (Wunschberuf anpassen, Lebenslauf klarer strukturieren).
 
-Der Lebenslauf (PDF, DOCX oder TXT) wird im Browser in Text umgewandelt. Die KI analysiert ihn und bewertet jede Stelle in vier Kriterien: fachliche Skills, Erfahrung, Passung zum Wunschberuf und Passung zum Kurzbeschrieb (Gewichtung 35/25/20/20 %, ohne Kurzbeschrieb 40/30/30 %). Die Prozentzahl wird aus diesen Teilwerten berechnet und im UI erklärt. Treffer unter 90 % werden nur auf Klick angezeigt.
+Der Abo-Status wird serverseitig live gegen Stripe geprüft (keine eigene Datenbank nötig für den Status selbst).
 
 ## Benötigte Umgebungsvariablen (Vercel Project Settings)
 

@@ -1,5 +1,5 @@
 import jwt from 'jsonwebtoken';
-import { getEntitlement } from './_stripe.js';
+import { getEntitlement, isSuperuser } from './_stripe.js';
 
 function verifyToken(token) {
   try {
@@ -21,11 +21,10 @@ export default async function handler(req, res) {
   if (!decoded) return res.status(401).json({ error: 'Unauthorized' });
 
   try {
-    const { hasActiveSubscription, freeSearchAvailable, subscription } = await getEntitlement(decoded.email);
+    const { hasActiveSubscription, subscription } = await getEntitlement(decoded.email);
 
     res.json({
       subscribed: hasActiveSubscription,
-      freeSearchAvailable,
       cancelAtPeriodEnd: subscription?.cancel_at_period_end || false,
       currentPeriodEnd: subscription?.items?.data?.[0]?.current_period_end || subscription?.current_period_end || null,
       status: subscription?.status || null
@@ -33,6 +32,7 @@ export default async function handler(req, res) {
   } catch (error) {
     const detail = error.raw?.message || error.message;
     console.error('Subscription Status Error:', detail);
-    res.status(500).json({ error: `Abo-Status konnte nicht geladen werden: ${detail}` });
+    const msg = isSuperuser(decoded.email) ? `Abo-Status konnte nicht geladen werden: ${detail}` : 'Abo-Status konnte nicht geladen werden.';
+    res.status(500).json({ error: msg });
   }
 }

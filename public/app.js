@@ -6,21 +6,24 @@ let currentCvText = null;
 let currentCvFileName = null;
 let currentJobs = [];
 let favorites = {};
-let showLowMatches = false;
 let currentFallback = false;
+let showMoreTier = false;
+let currentEntitlement = { subscribed: false };
 
-// Nur Treffer ab dieser Schwelle werden standardmäßig angezeigt.
-const MATCH_THRESHOLD = 90;
+// Für "mit Abo: bei erneutem Klick neue Jobs" - Cursor der letzten Suche samt
+// Signatur der verwendeten Kriterien. Ändert sich die Signatur, wird eine neue
+// Suche gestartet (Cursor verworfen); bleibt sie gleich, fordern wir die
+// nächste Seite derselben Suche an.
+let lastSearchSignature = null;
+let lastCursor = null;
+
 const MIN_CV_CHARS = 200;
+const MAX_CV_FILE_BYTES = 1024 * 1024; // 1 MB
 
-// Liest den Text eines Lebenslaufs (TXT, PDF, DOCX) direkt im Browser.
+// Liest den Text eines Lebenslaufs (PDF, DOCX) direkt im Browser.
 // file.text() liefert bei PDF/DOCX nur Binärmüll, den die KI nicht analysieren kann.
 async function extractCvText(file) {
   const name = file.name.toLowerCase();
-
-  if (name.endsWith('.txt') || name.endsWith('.md') || file.type === 'text/plain') {
-    return file.text();
-  }
 
   if (name.endsWith('.pdf')) {
     if (!window.pdfjsLib) throw new Error('PDF-Leser konnte nicht geladen werden. Bitte Seite neu laden.');
@@ -31,7 +34,6 @@ async function extractCvText(file) {
     for (let i = 1; i <= pdf.numPages; i++) {
       const page = await pdf.getPage(i);
       const content = await page.getTextContent();
-      // hasEOL erhält Zeilenumbrüche, damit die Struktur des CVs lesbar bleibt
       pages.push(content.items.map((it) => it.str + (it.hasEOL ? '\n' : ' ')).join(''));
     }
     return pages.join('\n\n');
@@ -43,18 +45,11 @@ async function extractCvText(file) {
     return result.value;
   }
 
-  if (name.endsWith('.doc')) {
-    throw new Error('Das alte .doc-Format wird nicht unterstützt. Bitte als PDF oder DOCX speichern.');
-  }
-
-  throw new Error('Nicht unterstütztes Dateiformat. Erlaubt: PDF, DOCX, TXT.');
+  throw new Error('Nicht unterstütztes Dateiformat. Erlaubt: PDF oder DOCX.');
 }
 
 const $ = (id) => document.getElementById(id);
 
-// CV, Favoriten etc. leben ausschließlich im localStorage des Browsers
-// (siehe README) - die serverseitigen API-Routen sind zustandslose
-// Vercel-Functions ohne gemeinsamen Speicher zwischen Aufrufen.
 function loadFavoritesFromStorage() {
   try {
     return JSON.parse(localStorage.getItem('jobMatcherFavorites') || '{}');
@@ -67,8 +62,13 @@ function saveFavoritesToStorage() {
   localStorage.setItem('jobMatcherFavorites', JSON.stringify(favorites));
 }
 
-// Google Login Initialisierung
-function initGoogleLogin() {
+// --- Google Login --------------------------------------------------------
+// Das GSI-Skript lädt async/defer im <head> - auf einem frischen Besuch (ohne
+// Cache) ist es beim DOMContentLoaded-Event oft noch nicht fertig geladen,
+// window.google ist dann undefined und der Button erscheint nie (nur nach
+// manuellem Reload, wenn das Skript dann aus dem Cache kommt). Deshalb hier
+// mit kurzen Intervallen erneut versuchen statt nur einmal zu prüfen.
+function initGoogleLogin(retriesLeft = 40) {
   if (window.google && window.google.accounts) {
     google.accounts.id.initialize({
       client_id: '986980931499-euoqjpb7uj4h045uf2rns52ijbbke1g6.apps.googleusercontent.com',
@@ -76,13 +76,15 @@ function initGoogleLogin() {
     });
     google.accounts.id.renderButton(
       document.getElementById('googleButtonContainer'),
-      {
-        theme: 'outline',
-        size: 'large',
-        width: '300'
-      }
+      { theme: 'outline', size: 'large', width: '300' }
     );
+    return;
   }
+  if (retriesLeft <= 0) {
+    console.error('Google Sign-In script did not load in time.');
+    return;
+  }
+  setTimeout(() => initGoogleLogin(retriesLeft - 1), 150);
 }
 
 async function handleGoogleLogin(response) {
@@ -105,9 +107,9 @@ async function handleGoogleLogin(response) {
   }
 }
 
-// Abo-Status laden und Profil-Box entsprechend aktualisieren
-let currentEntitlement = { subscribed: false, freeSearchAvailable: true };
-
+// --- Abo-Status ------------------------------------------------------------
+// Suche selbst ist seit dem Produkt-Pivot für alle unbegrenzt möglich - das
+// Abo steuert nur noch, wie viele/welche Ergebnisse angezeigt werden.
 async function refreshSubscriptionStatus() {
   const box = $('subscriptionStatusText');
   const subscribeBtn = $('subscribeBtn');
@@ -120,7 +122,7 @@ async function refreshSubscriptionStatus() {
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Fehler');
 
-    currentEntitlement = { subscribed: data.subscribed, freeSearchAvailable: data.freeSearchAvailable };
+    currentEntitlement = { subscribed: data.subscribed };
 
     if (data.subscribed) {
       const renewalNote = data.currentPeriodEnd
@@ -131,26 +133,37 @@ async function refreshSubscriptionStatus() {
         : `✅ Abo aktiv${renewalNote ? ` – verlängert sich am ${renewalNote}` : ''}`;
       subscribeBtn.classList.add('hidden');
       manageBtn.classList.remove('hidden');
-    } else if (data.freeSearchAvailable) {
-      box.textContent = '🎁 Deine kostenlose Suche für diesen Monat ist noch verfügbar';
-      subscribeBtn.classList.remove('hidden');
-      manageBtn.classList.add('hidden');
     } else {
-      box.textContent = '🔒 Kostenlose Suche aufgebraucht – Abo nötig';
+      box.textContent = 'Kostenlos: bis zu 3 Top-Matches pro Suche';
       subscribeBtn.classList.remove('hidden');
       manageBtn.classList.add('hidden');
     }
-    setPaywall(!data.subscribed && !data.freeSearchAvailable);
   } catch (error) {
     console.error('Subscription Status Error:', error);
     box.textContent = 'Abo-Status konnte nicht geladen werden.';
   }
 }
 
-function setPaywall(show) {
-  $('paywallBox').classList.toggle('hidden', !show);
-  $('scanBtn').disabled = show;
+// --- Modals ------------------------------------------------------------
+function openModal(id) {
+  $(id).classList.remove('hidden');
 }
+function closeModal(id) {
+  $(id).classList.add('hidden');
+}
+document.querySelectorAll('[data-close-modal]').forEach((btn) => {
+  btn.addEventListener('click', () => closeModal(btn.dataset.closeModal));
+});
+document.querySelectorAll('.modal-overlay').forEach((overlay) => {
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) overlay.classList.add('hidden');
+  });
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    document.querySelectorAll('.modal-overlay:not(.hidden)').forEach((m) => m.classList.add('hidden'));
+  }
+});
 
 async function callStripeEndpoint(path, btn, fallbackMsg) {
   const originalLabel = btn.textContent;
@@ -171,24 +184,26 @@ async function callStripeEndpoint(path, btn, fallbackMsg) {
     const message = data.error || `${fallbackMsg} (HTTP ${res.status})`;
     console.error('Stripe Endpoint Error:', path, res.status, message);
     showStatus(`❌ ${message}`, 'error');
-    // Fehlertext auch direkt sichtbar dort platzieren, wo geklickt wurde
-    $('subscriptionStatusText').textContent = `❌ ${message}`;
   } catch (error) {
     console.error('Stripe Endpoint Network Error:', path, error);
     showStatus(`❌ ${fallbackMsg}: ${error.message}`, 'error');
-    $('subscriptionStatusText').textContent = `❌ ${fallbackMsg}: ${error.message}`;
   } finally {
     btn.disabled = false;
     btn.textContent = originalLabel;
   }
 }
 
-const startCheckout = () => callStripeEndpoint('/create-checkout-session', $('subscribeBtn').classList.contains('hidden') ? $('paywallSubscribeBtn') : $('subscribeBtn'), 'Checkout konnte nicht gestartet werden');
-const openPortal = () => callStripeEndpoint('/create-portal-session', $('manageSubBtn'), 'Kundenportal konnte nicht geöffnet werden');
-
-$('subscribeBtn').addEventListener('click', startCheckout);
-$('paywallSubscribeBtn').addEventListener('click', startCheckout);
-$('manageSubBtn').addEventListener('click', openPortal);
+// "Abonnieren" zeigt zuerst nochmal die Vorteile, bevor es zu Stripe geht.
+function startCheckoutFlow() {
+  openModal('subscribeModal');
+}
+$('subscribeBtn').addEventListener('click', startCheckoutFlow);
+$('subscribeModalConfirmBtn').addEventListener('click', () => {
+  callStripeEndpoint('/create-checkout-session', $('subscribeModalConfirmBtn'), 'Checkout konnte nicht gestartet werden');
+});
+$('manageSubBtn').addEventListener('click', () => {
+  callStripeEndpoint('/create-portal-session', $('manageSubBtn'), 'Kundenportal konnte nicht geöffnet werden');
+});
 
 function loginSuccess(email, token) {
   currentUser = email;
@@ -198,7 +213,6 @@ function loginSuccess(email, token) {
   render();
 }
 
-// Logout
 $('logoutBtn').addEventListener('click', () => {
   currentUser = null;
   currentToken = null;
@@ -207,39 +221,47 @@ $('logoutBtn').addEventListener('click', () => {
   render();
 });
 
-// CV Upload
+// --- CV Upload -------------------------------------------------------------
 $('cvInput').addEventListener('change', async (e) => {
   const file = e.target.files[0];
   if (!file || !currentUser) return;
+
+  const name = file.name.toLowerCase();
+  if (!name.endsWith('.pdf') && !name.endsWith('.docx')) {
+    showStatus('❌ Nur PDF- oder DOCX-Dateien sind erlaubt.', 'error');
+    e.target.value = '';
+    return;
+  }
+
+  if (file.size > MAX_CV_FILE_BYTES) {
+    showStatus(`❌ Die Datei ist zu gross (${(file.size / 1024 / 1024).toFixed(1)} MB). Maximal 1 MB sind erlaubt.`, 'error');
+    e.target.value = '';
+    return;
+  }
 
   try {
     showStatus('🔄 Lebenslauf wird gelesen...', 'info');
     const text = (await extractCvText(file)).replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
 
     if (text.length < MIN_CV_CHARS) {
-      showStatus('❌ Aus der Datei konnte kaum Text gelesen werden (gescanntes PDF/Bild?). Bitte ein PDF mit Text, DOCX oder TXT hochladen.', 'error');
+      showStatus('❌ Aus der Datei konnte kaum Text gelesen werden (gescanntes PDF/Bild?). Bitte ein PDF mit Text oder DOCX hochladen.', 'error');
       e.target.value = '';
       return;
     }
 
-    // Lebenslauf lokal speichern - das ist die Quelle der Wahrheit für die
-    // Jobsuche, da Vercel-Functions keinen Speicher über Requests hinweg teilen.
     currentCvText = text;
     currentCvFileName = file.name;
     localStorage.setItem('jobMatcherCvText', text);
     localStorage.setItem('jobMatcherCvFileName', file.name);
+    lastSearchSignature = null; // neuer CV -> nächste Suche startet frisch
+    lastCursor = null;
 
     showStatus(`✅ Lebenslauf gelesen: ${file.name} (${text.length.toLocaleString('de-DE')} Zeichen)`, 'success');
     updateCvStatus(file.name);
 
-    // Best-effort serverseitiges Speichern (z. B. für zukünftiges Logging);
-    // die App funktioniert unabhängig vom Ergebnis dieses Calls.
     fetch(`${API_BASE}/cv`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${currentToken}`
-      },
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${currentToken}` },
       body: JSON.stringify({ email: currentUser, cvText: text })
     }).catch(() => {});
   } catch (error) {
@@ -248,7 +270,6 @@ $('cvInput').addEventListener('change', async (e) => {
   }
 });
 
-// Delete CV
 $('removeCvBtn').addEventListener('click', () => {
   if (!currentUser) return;
 
@@ -256,62 +277,50 @@ $('removeCvBtn').addEventListener('click', () => {
   currentCvFileName = null;
   localStorage.removeItem('jobMatcherCvText');
   localStorage.removeItem('jobMatcherCvFileName');
+  lastSearchSignature = null;
+  lastCursor = null;
 
   showStatus('✅ Lebenslauf gelöscht', 'success');
   updateCvStatus(null);
   currentJobs = [];
   renderCvProfile(null);
+  renderCareerGoalFit(null);
+  renderImprovementTips(null);
+  renderUpsell(null);
   renderJobs([]);
 });
 
-// Job Search
+// --- Job-Suche ---------------------------------------------------------
 $('scanBtn').addEventListener('click', async () => {
   if (!currentUser) {
     showStatus('Bitte anmelden', 'error');
     return;
   }
-
   if (!currentCvText) {
     showStatus('❌ Bitte zuerst einen Lebenslauf hochladen', 'error');
     return;
   }
 
-  if (!currentEntitlement.subscribed && !currentEntitlement.freeSearchAvailable) {
-    setPaywall(true);
-    showStatus('🔒 Kostenlose Suche aufgebraucht - bitte abonnieren', 'info');
-    return;
-  }
-
-  const role = $('jobRoleInput').value.trim() || 'Software Engineer';
-  const roleDescription = $('jobRoleDescriptionInput').value.trim();
+  const careerGoal = $('careerGoalInput').value.trim();
   const country = $('countrySelect').value;
 
+  // Gleiche Suche nochmal angestossen (mit Abo) -> nächste Seite statt
+  // derselben Ergebnisse. Ändert sich Wunschberuf/Land oder der CV, startet
+  // die Suche neu (siehe auch CV-Upload/-Löschen oben).
+  const signature = JSON.stringify({ careerGoal, country, cv: currentCvText.length });
+  const cursorToSend = (signature === lastSearchSignature) ? lastCursor : null;
+
   showStatus('🔄 Suche läuft...', 'info');
+  $('scanBtn').disabled = true;
 
   try {
     const res = await fetch(`${API_BASE}/jobs-search`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${currentToken}`
-      },
-      body: JSON.stringify({
-        email: currentUser,
-        cvText: currentCvText,
-        role,
-        roleDescription,
-        country
-      })
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${currentToken}` },
+      body: JSON.stringify({ email: currentUser, cvText: currentCvText, careerGoal, country, cursor: cursorToSend })
     });
 
     const data = await res.json();
-
-    if (res.status === 402) {
-      setPaywall(true);
-      showStatus(`🔒 ${data.message || 'Kostenlose Suche aufgebraucht - bitte abonnieren'}`, 'info');
-      refreshSubscriptionStatus();
-      return;
-    }
 
     if (!res.ok) {
       showStatus(`❌ ${data.error || 'Fehler bei der Jobsuche'}`, 'error');
@@ -322,37 +331,39 @@ $('scanBtn').addEventListener('click', async () => {
 
     currentJobs = data.jobs || [];
     currentFallback = !!data.fallback;
-    showLowMatches = false;
+    showMoreTier = false;
+    lastSearchSignature = signature;
+    lastCursor = data.cursor || null;
+
     renderCvProfile(data.cvProfile);
+    renderCareerGoalFit(data.careerGoalFit);
+    renderImprovementTips(data.improvementTips);
+    renderUpsell(data);
     refreshSubscriptionStatus();
+
+    const topCount = currentJobs.filter((j) => j.tier === 'top').length;
 
     if (data.fallback) {
       showStatus(`⚠️ Demo-Jobs (externe Jobsuche fehlgeschlagen): ${data.reason || ''}`, 'error');
-      renderJobs(currentJobs);
-    } else if (currentJobs.length > 0) {
-      const strong = currentJobs.filter((j) => j.match >= MATCH_THRESHOLD).length;
-      const hidden = currentJobs.length - strong;
-      let msg = strong > 0
-        ? `✅ ${strong} Job${strong === 1 ? '' : 's'} mit mindestens ${MATCH_THRESHOLD} % Match gefunden`
-        : `Keine Jobs mit mindestens ${MATCH_THRESHOLD} % Match gefunden`;
-      if (hidden > 0) msg += ` – ${hidden} weitere unter ${MATCH_THRESHOLD} % ausgeblendet`;
-      if (!data.aiPowered) {
-        msg += ` ⚠️ Ohne KI-Bewertung (${data.aiError || 'KI nicht verfügbar'}) – nur grobe Keyword-Näherung`;
-      }
-      showStatus(msg, strong > 0 && data.aiPowered ? 'success' : 'info');
-      renderJobs(currentJobs);
+    } else if (topCount > 0) {
+      let msg = `✅ ${topCount} Top-Match${topCount === 1 ? '' : 'es'} gefunden`;
+      if (!data.aiPowered) msg += ` ⚠️ Ohne KI-Bewertung (${data.aiError || 'KI nicht verfügbar'}) – nur grobe Näherung`;
+      showStatus(msg, data.aiPowered ? 'success' : 'info');
     } else {
-      showStatus(`❌ Keine passenden Jobs gefunden${data.note ? ' – ' + data.note : ''}`, 'info');
-      renderJobs([]);
+      showStatus('Keine Top-Matches gefunden – siehe Tipps unten.', 'info');
     }
+
+    renderJobs(currentJobs);
   } catch (error) {
     console.error('Search Error:', error);
     showStatus('Fehler bei der Jobsuche', 'error');
+  } finally {
+    $('scanBtn').disabled = false;
   }
 });
 
-function setShowLowMatches(value) {
-  showLowMatches = value;
+function setShowMoreTier(value) {
+  showMoreTier = value;
   renderJobs(currentJobs);
 }
 
@@ -365,11 +376,58 @@ function renderCvProfile(profile) {
   }
   const skills = (profile.coreSkills || []).slice(0, 12)
     .map((sk) => `<span class="skill-chip">${escapeHtml(String(sk))}</span>`).join('');
+  const education = (profile.education || []).length
+    ? `<p class="cv-profile-text">🎓 ${escapeHtml(profile.education.join(' · '))}</p>` : '';
   box.innerHTML = `
     <p><strong>🧠 So hat die KI deinen Lebenslauf verstanden:</strong>
     ${escapeHtml(profile.headline || '')}${profile.seniority ? ' · ' + escapeHtml(profile.seniority) : ''}</p>
     ${profile.summary ? `<p class="cv-profile-text">${escapeHtml(profile.summary)}</p>` : ''}
+    ${education}
     ${skills ? `<div class="skill-chips">${skills}</div>` : ''}`;
+  box.classList.remove('hidden');
+}
+
+function renderCareerGoalFit(fit) {
+  const box = $('careerGoalFitBox');
+  if (!fit || !fit.description) {
+    box.classList.add('hidden');
+    box.innerHTML = '';
+    return;
+  }
+  box.innerHTML = `<strong>🎯 Wunschberuf-Abgleich:</strong> ${escapeHtml(fit.description)}`;
+  box.classList.remove('hidden');
+}
+
+function renderImprovementTips(tips) {
+  const box = $('improvementTipsBox');
+  if (!tips) {
+    box.classList.add('hidden');
+    box.innerHTML = '';
+    return;
+  }
+  box.innerHTML = `<strong>💡 So verbesserst du deine Trefferquote:</strong> ${escapeHtml(tips)}`;
+  box.classList.remove('hidden');
+}
+
+function renderUpsell(data) {
+  const box = $('upsellBox');
+  if (!data || currentEntitlement.subscribed || currentFallback) {
+    box.classList.add('hidden');
+    box.innerHTML = '';
+    return;
+  }
+  const { lockedTopCount = 0, lockedMoreCount = 0 } = data;
+  if (lockedTopCount === 0 && lockedMoreCount === 0) {
+    box.classList.add('hidden');
+    box.innerHTML = '';
+    return;
+  }
+  const parts = [];
+  if (lockedTopCount > 0) parts.push(`${lockedTopCount} weitere${lockedTopCount === 1 ? 'r' : ''} Top-Match${lockedTopCount === 1 ? '' : 'es'} (ab 85 %)`);
+  if (lockedMoreCount > 0) parts.push(`${lockedMoreCount} Treffer im Bereich 50-84 %`);
+  box.innerHTML = `
+    <p>🔒 Mit Abo siehst du zusätzlich: ${parts.join(' und ')} – plus Verbesserungs­empfehlungen je Job.</p>
+    <button class="btn btn-primary full" onclick="startCheckoutFlow()">💳 Abo-Vorteile ansehen</button>`;
   box.classList.remove('hidden');
 }
 
@@ -386,8 +444,7 @@ function renderBreakdown(job) {
     </li>`).join('');
   return `
     <details class="match-details">
-      <summary>Wie kommt der Wert von ${job.match} % zustande?</summary>
-      ${job.matchFormula ? `<p class="match-formula">${escapeHtml(job.matchFormula)}</p>` : ''}
+      <summary>Wie kommt dieser Match zustande?</summary>
       <ul class="match-breakdown">${rows}</ul>
     </details>`;
 }
@@ -396,59 +453,69 @@ function renderJobs(jobs) {
   const container = $('jobsContainer');
 
   if (!jobs || jobs.length === 0) {
-    container.innerHTML = '<p class="empty-state">Keine Jobangebote gefunden. Versuche eine neue Suche.</p>';
+    container.innerHTML = '<p class="empty-state">Keine Jobangebote gefunden. Versuche eine neue Suche oder passe deinen Wunschberuf an.</p>';
     $('foundJobsCount').textContent = '0';
     return;
   }
 
-  // Unter der Schwelle wird nur auf ausdrücklichen Wunsch angezeigt.
-  const visible = (showLowMatches || currentFallback)
-    ? jobs
-    : jobs.filter((j) => j.match >= MATCH_THRESHOLD);
-  const hiddenCount = jobs.length - visible.length;
+  const topJobs = jobs.filter((j) => j.tier === 'top' || currentFallback);
+  const moreJobs = jobs.filter((j) => j.tier === 'more');
+  const visible = showMoreTier ? jobs : topJobs;
   $('foundJobsCount').textContent = visible.length;
 
-  const toggle = hiddenCount > 0
-    ? `<button class="btn btn-secondary full" onclick="setShowLowMatches(true)">Auch ${hiddenCount} Match${hiddenCount === 1 ? '' : 'es'} unter ${MATCH_THRESHOLD} % anzeigen</button>`
-    : (showLowMatches && !currentFallback && jobs.some((j) => j.match < MATCH_THRESHOLD)
-      ? `<button class="btn btn-secondary full" onclick="setShowLowMatches(false)">Matches unter ${MATCH_THRESHOLD} % wieder ausblenden</button>`
-      : '');
+  const toggle = moreJobs.length > 0
+    ? `<button class="btn btn-secondary full" onclick="setShowMoreTier(${!showMoreTier})">
+        Weitere Jobs ${showMoreTier ? 'ausblenden' : `anzeigen (${moreJobs.length})`}
+       </button>`
+    : '';
 
-  if (visible.length === 0) {
-    container.innerHTML = `<p class="empty-state">Keine Jobs mit mindestens ${MATCH_THRESHOLD} % Match. Treffer darunter kannst du mit dem Button einblenden.</p>${toggle}`;
-    return;
-  }
+  container.innerHTML = visible.map((job) => renderJobCard(job)).join('') + toggle;
+}
 
-  container.innerHTML = visible.map((job) => `
-    <div class="job-card${job.match < MATCH_THRESHOLD && !currentFallback ? ' low-match' : ''}">
+function renderJobCard(job) {
+  const isFav = !!favorites[job.id];
+  return `
+    <div class="job-card${job.tier === 'more' ? ' tier-more' : ''}">
       <div class="job-header">
         <div class="job-title">
           <h4>${escapeHtml(job.title)}</h4>
           <p class="job-company">${escapeHtml(job.company)}</p>
         </div>
-        <span class="match-badge">${job.match}% Match</span>
+        <span>
+          ${job.isBestMatch ? '<span class="best-match-badge">⭐ Best Match</span>' : ''}
+          <span class="match-badge">${job.match}% Match</span>
+        </span>
       </div>
       <div class="job-meta">
         <span class="meta-item">📍 ${escapeHtml(job.location)}</span>
         <span class="meta-item">🌍 ${escapeHtml(job.country || 'Global')}</span>
+        ${job.source ? `<span class="job-source">Quelle: ${escapeHtml(job.source)}</span>` : ''}
       </div>
-      <p class="job-description">${escapeHtml(job.description.substring(0, 200))}</p>
-      ${job.aiSummary ? `
+      ${job.matchExplanation ? `
       <div class="ai-summary">
         <span class="ai-icon">🤖</span>
-        <span>${escapeHtml(job.aiSummary)}</span>
+        <span>${escapeHtml(job.matchExplanation)}</span>
       </div>` : ''}
       ${renderBreakdown(job)}
+      ${job.growthRecommendation ? `
+      <div id="growth-${job.id}" class="growth-tip-box hidden">
+        <strong>📈 So kommst du auf 100 %:</strong> ${escapeHtml(job.growthRecommendation)}
+      </div>` : ''}
       <div class="job-actions">
-        <a href="${job.url}" target="_blank" rel="noopener noreferrer" class="btn btn-job-link">
-          💼 Job ansehen
-        </a>
-        <button class="btn btn-favorite ${favorites[job.id] ? 'active' : ''}" data-id="${job.id}" onclick="toggleFavorite('${job.id}')">
-          ${favorites[job.id] ? '★ Favorit' : '☆ Favorit'}
+        <a href="${job.url}" target="_blank" rel="noopener noreferrer" class="btn btn-job-link">💼 Job ansehen</a>
+        ${job.growthRecommendation ? `
+        <button class="btn btn-growth" onclick="toggleGrowthTip('${job.id}')">📈 Empfehlung</button>` : ''}
+        <button class="btn btn-favorite ${isFav ? 'active' : ''}" data-id="${job.id}" onclick="toggleFavorite('${job.id}')">
+          ${isFav ? '★ Favorit' : '☆ Favorit'}
         </button>
       </div>
     </div>
-  `).join('') + toggle;
+  `;
+}
+
+function toggleGrowthTip(jobId) {
+  const el = $(`growth-${jobId}`);
+  if (el) el.classList.toggle('hidden');
 }
 
 function toggleFavorite(jobId) {
@@ -457,10 +524,8 @@ function toggleFavorite(jobId) {
   if (favorites[jobId]) {
     delete favorites[jobId];
   } else {
-    const job = currentJobs.find(j => j.id === jobId);
-    if (job) {
-      favorites[jobId] = job;
-    }
+    const job = currentJobs.find((j) => j.id === jobId);
+    if (job) favorites[jobId] = job;
   }
 
   saveFavoritesToStorage();
@@ -469,15 +534,23 @@ function toggleFavorite(jobId) {
   renderJobs(currentJobs);
 }
 
-function renderFavorites(favorites) {
+function removeFavorite(jobId) {
+  delete favorites[jobId];
+  saveFavoritesToStorage();
+  $('favoritesCount').textContent = Object.keys(favorites).length;
+  renderFavorites(Object.values(favorites));
+  renderJobs(currentJobs);
+}
+
+function renderFavorites(favoriteList) {
   const container = $('favoritesContainer');
 
-  if (!favorites || favorites.length === 0) {
+  if (!favoriteList || favoriteList.length === 0) {
     container.innerHTML = '<p class="empty-state">Noch keine Favoriten. Markiere Jobs als Favorit!</p>';
     return;
   }
 
-  container.innerHTML = favorites.map((job) => `
+  container.innerHTML = favoriteList.map((job) => `
     <div class="job-card">
       <div class="job-header">
         <div class="job-title">
@@ -488,11 +561,11 @@ function renderFavorites(favorites) {
       </div>
       <div class="job-meta">
         <span class="meta-item">📍 ${escapeHtml(job.location)}</span>
+        ${job.source ? `<span class="job-source">Quelle: ${escapeHtml(job.source)}</span>` : ''}
       </div>
       <div class="job-actions">
-        <a href="${job.url}" target="_blank" rel="noopener noreferrer" class="btn btn-job-link">
-          💼 Job ansehen
-        </a>
+        <a href="${job.url}" target="_blank" rel="noopener noreferrer" class="btn btn-job-link">💼 Job ansehen</a>
+        <button class="favorite-remove-btn" onclick="removeFavorite('${job.id}')">✕ Entfernen</button>
       </div>
     </div>
   `).join('');
@@ -542,6 +615,55 @@ function escapeHtml(text) {
   return div.innerHTML;
 }
 
+// --- Feedback & Störungsmeldung ------------------------------------------
+async function submitSupportMessage(kind, text, statusEl, modalId, btn) {
+  if (!text.trim()) {
+    statusEl.textContent = 'Bitte zuerst einen Text eingeben.';
+    return;
+  }
+  const originalLabel = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = '⏳ Wird gesendet...';
+  try {
+    const res = await fetch(`${API_BASE}/${kind === 'feedback' ? 'feedback' : 'report-issue'}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${currentToken}` },
+      body: JSON.stringify({ text: text.trim(), page: window.location.pathname })
+    });
+    const data = await res.json().catch(() => ({}));
+    if (res.ok) {
+      statusEl.textContent = '✅ Danke, deine Nachricht ist angekommen!';
+      setTimeout(() => closeModal(modalId), 1200);
+    } else {
+      statusEl.textContent = `❌ ${data.error || 'Senden fehlgeschlagen. Bitte später erneut versuchen.'}`;
+    }
+  } catch (error) {
+    console.error('Support message error:', error);
+    statusEl.textContent = '❌ Senden fehlgeschlagen. Bitte später erneut versuchen.';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = originalLabel;
+  }
+}
+
+$('feedbackBtn').addEventListener('click', () => {
+  $('feedbackText').value = '';
+  $('feedbackStatus').textContent = '';
+  openModal('feedbackModal');
+});
+$('feedbackSubmitBtn').addEventListener('click', () => {
+  submitSupportMessage('feedback', $('feedbackText').value, $('feedbackStatus'), 'feedbackModal', $('feedbackSubmitBtn'));
+});
+
+$('reportIssueBtn').addEventListener('click', () => {
+  $('issueText').value = '';
+  $('issueStatus').textContent = '';
+  openModal('issueModal');
+});
+$('issueSubmitBtn').addEventListener('click', () => {
+  submitSupportMessage('issue', $('issueText').value, $('issueStatus'), 'issueModal', $('issueSubmitBtn'));
+});
+
 // Restore session on load
 window.addEventListener('DOMContentLoaded', () => {
   const token = localStorage.getItem('jobMatcherToken');
@@ -581,12 +703,7 @@ window.addEventListener('DOMContentLoaded', () => {
 });
 
 // --- Cookie-Einwilligung -----------------------------------------------
-// Aktuell setzt diese App selbst keine Cookies (Login/CV/Favoriten laufen
-// über localStorage). Google Sign-In und Stripe Checkout setzen auf ihren
-// eigenen Domains notwendige Cookies, die nicht einwilligungspflichtig sind.
-// Analytics (GA4) ist einwilligungspflichtig und wird daher erst NACH
-// Zustimmung geladen - siehe maybeLoadAnalytics().
-const COOKIE_CONSENT_KEY = 'jobMatcherCookieConsent'; // 'all' | 'necessary'
+const COOKIE_CONSENT_KEY = 'jobMatcherCookieConsent';
 
 function initCookieConsent() {
   const consent = localStorage.getItem(COOKIE_CONSENT_KEY);
@@ -607,7 +724,6 @@ function initCookieConsent() {
     $('cookieBanner').classList.add('hidden');
   });
 
-  // Erlaubt es, die Einstellungen über den Footer-Link erneut zu öffnen
   $('footerCookieBtn').addEventListener('click', () => {
     $('cookieBanner').classList.remove('hidden');
   });

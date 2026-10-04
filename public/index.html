@@ -215,11 +215,11 @@
             <h3>📄 Dein Lebenslauf</h3>
           </div>
           <label class="upload-box">
-            <input id="cvInput" type="file" accept=".pdf,.docx,.txt" />
+            <input id="cvInput" type="file" accept=".pdf,.docx" />
             <div class="upload-content">
               <span class="upload-icon">📤</span>
               <span class="upload-text">Klick zum Hochladen</span>
-              <span class="upload-hint">PDF, DOCX oder TXT</span>
+              <span class="upload-hint">PDF oder DOCX, max. 1 MB</span>
             </div>
           </label>
           
@@ -245,22 +245,17 @@
           </div>
 
           <div class="form-group">
-            <label for="jobRoleInput">Wunschberuf</label>
-            <input 
-              id="jobRoleInput" 
-              type="text" 
-              placeholder="z. B. Frontend Developer, Data Scientist" 
-            />
-          </div>
-
-          <div class="form-group">
-            <label for="jobRoleDescriptionInput">Kurzbeschrieb (optional)</label>
+            <label for="careerGoalInput">Wunschberuf (optional)</label>
             <textarea
-              id="jobRoleDescriptionInput"
-              rows="3"
-              placeholder="z. B. Fokus auf React &amp; TypeScript, gerne mit Remote-Anteil, erste Führungserfahrung von Vorteil ..."
+              id="careerGoalInput"
+              rows="4"
+              placeholder="z. B. Frontend Developer mit Fokus auf React &amp; TypeScript, gerne mit Remote-Anteil, erste Führungserfahrung von Vorteil ..."
             ></textarea>
-            <p class="field-hint">Wird von der KI bei der Job-Empfehlung berücksichtigt.</p>
+            <p class="field-hint">
+              Ohne Angabe sucht die KI automatisch passend zu deinem Lebenslauf.
+              Ist er angegeben, fliesst er in die Bewertung ein - und umso stärker,
+              je besser er zu deiner Erfahrung passt.
+            </p>
           </div>
 
           <button id="scanBtn" class="btn btn-primary full">🚀 Jobs durchsuchen</button>
@@ -288,8 +283,12 @@
           </div>
           <div id="subscriptionBox" class="subscription-box">
             <p id="subscriptionStatusText">Abo-Status wird geladen...</p>
-            <button id="subscribeBtn" class="btn btn-primary full hidden">💳 Abo abschließen (CHF 9.90/Monat)</button>
+            <button id="subscribeBtn" class="btn btn-primary full hidden">💳 Abo abschließen</button>
             <button id="manageSubBtn" class="btn btn-secondary full hidden">⚙️ Abo verwalten</button>
+          </div>
+          <div class="profile-support-actions">
+            <button id="feedbackBtn" class="btn btn-secondary full">💬 Feedback geben</button>
+            <button id="reportIssueBtn" class="btn btn-secondary full">🚩 Störung melden</button>
           </div>
         </div>
       </div>
@@ -297,14 +296,12 @@
       <!-- Results Section -->
       <div class="card results-card">
         <div class="card-header">
-          <h3>✨ Passende Jobangebote (ab 90 % Match)</h3>
+          <h3>✨ Passende Jobangebote</h3>
         </div>
         <div id="cvProfileBox" class="cv-profile hidden"></div>
-        <div id="paywallBox" class="paywall-box hidden">
-          <p>🔒 Deine kostenlose Suche für diesen Monat ist aufgebraucht.</p>
-          <p class="field-hint">Mit dem Abo (CHF 9.90/Monat, monatlich kündbar) suchst du unbegrenzt weiter.</p>
-          <button id="paywallSubscribeBtn" class="btn btn-primary full">💳 Jetzt abonnieren</button>
-        </div>
+        <div id="careerGoalFitBox" class="career-goal-fit hidden"></div>
+        <div id="improvementTipsBox" class="improvement-tips hidden"></div>
+        <div id="upsellBox" class="paywall-box hidden"></div>
         <div id="jobsContainer" class="jobs-container">
           <p class="empty-state">Lade einen Lebenslauf hoch und starte eine Suche</p>
         </div>
@@ -320,6 +317,47 @@
         </div>
       </div>
     </section>
+  </div>
+
+  <!-- Feedback-Modal -->
+  <div id="feedbackModal" class="modal-overlay hidden">
+    <div class="modal-card">
+      <button type="button" class="modal-close" data-close-modal="feedbackModal" aria-label="Schliessen">✕</button>
+      <h3>💬 Feedback geben</h3>
+      <p class="field-hint">Was können wir besser machen? Dein Feedback hilft uns direkt weiter.</p>
+      <textarea id="feedbackText" rows="5" placeholder="Deine Rückmeldung ..."></textarea>
+      <button id="feedbackSubmitBtn" class="btn btn-primary full">Absenden</button>
+      <p id="feedbackStatus" class="field-hint"></p>
+    </div>
+  </div>
+
+  <!-- Störung-melden-Modal -->
+  <div id="issueModal" class="modal-overlay hidden">
+    <div class="modal-card">
+      <button type="button" class="modal-close" data-close-modal="issueModal" aria-label="Schliessen">✕</button>
+      <h3>🚩 Störung melden</h3>
+      <p class="field-hint">Beschreibe kurz, was nicht funktioniert hat. Wir schauen es uns an.</p>
+      <textarea id="issueText" rows="5" placeholder="Was ist passiert?"></textarea>
+      <button id="issueSubmitBtn" class="btn btn-primary full">Absenden</button>
+      <p id="issueStatus" class="field-hint"></p>
+    </div>
+  </div>
+
+  <!-- Abo-Vorteile-Modal (vor dem Checkout) -->
+  <div id="subscribeModal" class="modal-overlay hidden">
+    <div class="modal-card">
+      <button type="button" class="modal-close" data-close-modal="subscribeModal" aria-label="Schliessen">✕</button>
+      <h3>💳 Das bekommst du mit dem Abo</h3>
+      <ul class="modal-benefit-list">
+        <li><span class="usp-check">✓</span> Bis zu 10 Top-Matches (ab 85 % Übereinstimmung) statt nur 3</li>
+        <li><span class="usp-check">✓</span> Zusätzlich bis zu 10 weitere Treffer im Bereich 50-84 %</li>
+        <li><span class="usp-check">✓</span> Besonders gekennzeichneter Best Match</li>
+        <li><span class="usp-check">✓</span> Konkrete Empfehlung je Job: was dir zu 100 % Deckung fehlt</li>
+        <li><span class="usp-check">✓</span> Bei jedem Klick auf „Jobs durchsuchen" frische Ergebnisse</li>
+        <li><span class="usp-check">✓</span> Monatlich kündbar, jederzeit über das Kundenportal</li>
+      </ul>
+      <button id="subscribeModalConfirmBtn" class="btn btn-primary full">Jetzt für CHF 9.90/Monat abonnieren</button>
+    </div>
   </div>
 
   <footer class="site-footer">

@@ -1,5 +1,5 @@
 import jwt from 'jsonwebtoken';
-import { getStripe, getOrCreateCustomer, PRICE_ID, APP_URL } from './_stripe.js';
+import { getStripe, getOrCreateCustomer, PRICE_ID, APP_URL, isSuperuser } from './_stripe.js';
 
 function verifyToken(token) {
   try {
@@ -39,6 +39,7 @@ export default async function handler(req, res) {
   } catch (error) {
     const detail = error.raw?.message || error.message;
     console.error('Create Checkout Session Error:', detail);
-    res.status(500).json({ error: `Checkout konnte nicht gestartet werden: ${detail}` });
+    const msg = isSuperuser(decoded.email) ? `Checkout konnte nicht gestartet werden: ${detail}` : 'Checkout konnte nicht gestartet werden. Bitte später erneut versuchen.';
+    res.status(500).json({ error: msg });
   }
 }
