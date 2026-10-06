@@ -1,4 +1,9 @@
 import Stripe from 'stripe';
+import { getSupabase } from './_supabase.js';
+
+// Fest hinterlegter Haupt-Admin - braucht keinen Eintrag in admin_users und
+// funktioniert auch, falls Supabase mal nicht erreichbar ist.
+const PRIMARY_ADMIN_EMAIL = 'gernot.gassner@gmail.com';
 
 // Geteilte Stripe-Logik für alle API-Routen. Dateiname beginnt mit "_", damit
 // Vercel daraus keine eigene Serverless-Function/Route macht.
@@ -47,14 +52,36 @@ export async function getEntitlement(email) {
   };
 }
 
-// Zeigt technische Fehlerdetails (Statuscodes, Rohantworten Dritter) nur
-// Superusern an - reguläre Nutzer sehen ausschliesslich generische,
-// freundliche Meldungen. Liste kommt aus der Env-Var SUPERUSER_EMAILS
-// (kommagetrennt, z. B. "admin@example.com,dev@example.com").
-export function isSuperuser(email) {
-  const list = (process.env.SUPERUSER_EMAILS || '')
+// Zeigt technische Fehlerdetails (Statuscodes, Rohantworten Dritter) und den
+// Admin-Bereich nur Superusern. Das sind: der fest hinterlegte Haupt-Admin,
+// optional weitere Adressen in der Env-Var SUPERUSER_EMAILS (kommagetrennt -
+// Fallback, falls Supabase noch nicht eingerichtet ist), sowie bestätigte
+// Einträge in admin_users (status='confirmed', bestätigt durch Google-Login
+// der eingeladenen Person - siehe api/google-login.js).
+export async function isSuperuser(email) {
+  if (!email) return false;
+  const lower = email.toLowerCase();
+
+  if (lower === PRIMARY_ADMIN_EMAIL) return true;
+
+  const envList = (process.env.SUPERUSER_EMAILS || '')
     .split(',')
     .map((e) => e.trim().toLowerCase())
     .filter(Boolean);
-  return !!email && list.includes(email.toLowerCase());
+  if (envList.includes(lower)) return true;
+
+  try {
+    const supabase = getSupabase();
+    const { data, error } = await supabase
+      .from('admin_users')
+      .select('status')
+      .eq('email', lower)
+      .eq('status', 'confirmed')
+      .maybeSingle();
+    if (error) throw error;
+    return !!data;
+  } catch (e) {
+    console.error('isSuperuser: admin_users check failed (treating as non-admin):', e.message);
+    return false;
+  }
 }

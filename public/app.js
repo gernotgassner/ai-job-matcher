@@ -123,6 +123,7 @@ async function refreshSubscriptionStatus() {
     if (!res.ok) throw new Error(data.error || 'Fehler');
 
     currentEntitlement = { subscribed: data.subscribed };
+    $('adminLink').classList.toggle('hidden', !data.isAdmin);
 
     if (data.subscribed) {
       const renewalNote = data.currentPeriodEnd

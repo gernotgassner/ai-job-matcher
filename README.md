@@ -28,6 +28,14 @@ Der Abo-Status wird serverseitig live gegen Stripe geprüft (keine eigene Datenb
 - `ANTHROPIC_API_KEY` – alternativ zu OpenAI (wird nur genutzt, wenn kein OpenAI-Key gesetzt ist)
 - `GOOGLE_CLIENT_ID` – für den echten Google-Login (optional, Testlogin funktioniert auch ohne)
 
+## Admin-Bereich
+
+Erreichbar unter `/admin.html` (verlinkt im Profil, aber nur für Admins sichtbar). Zugriff haben:
+- `gernot.gassner@gmail.com` (fest im Code hinterlegt, `api/_stripe.js`)
+- Zusätzliche Admins: über den „Einladen"-Button im Admin-Bereich selbst eingeladen (landen zunächst mit Status „ausstehend" in der `admin_users`-Tabelle) - die Einladung bestätigt sich automatisch, sobald sich genau diese E-Mail-Adresse per Google-Login anmeldet.
+
+Zeigt: Nutzerwachstum und Abo-Entwicklung (abgeschlossen/gekündigt) über die Zeit - direkt aus Stripe berechnet, keine eigene Datenhaltung dafür nötig; Feedback- und Störungsmeldungen von Nutzern; ein anonymisiertes Fehlerprotokoll (bewusst ohne Nutzerzuordnung); Admin-Verwaltung.
+
 ## Deployment
 
 Die App wird über Vercel deployed (statische Assets aus `public/` + Serverless-Functions aus `api/`).

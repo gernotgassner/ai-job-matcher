@@ -1,4 +1,5 @@
 import jwt from 'jsonwebtoken';
+import { getSupabase } from './_supabase.js';
 
 function verifyToken(token) {
   try {
@@ -8,9 +9,6 @@ function verifyToken(token) {
   }
 }
 
-// TODO sobald SUPABASE_URL/SUPABASE_SERVICE_ROLE_KEY gesetzt sind: Feedback
-// in eine "feedback"-Tabelle schreiben statt nur zu loggen, damit es im
-// Admin-Bereich (Feedbackauswertung) ausgewertet werden kann.
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -28,12 +26,18 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Text fehlt' });
   }
 
-  console.log('[FEEDBACK]', JSON.stringify({
-    email: decoded.email,
-    text: text.trim().slice(0, 2000),
-    page: page || null,
-    at: new Date().toISOString()
-  }));
+  const row = { email: decoded.email, text: text.trim().slice(0, 2000), page: page || null };
+
+  try {
+    const supabase = getSupabase();
+    const { error } = await supabase.from('feedback').insert(row);
+    if (error) throw error;
+  } catch (e) {
+    // Nicht den Nutzer scheitern lassen, nur weil die DB gerade nicht
+    // erreichbar ist - zumindest in den Vercel-Logs bleibt es sichtbar.
+    console.error('Feedback insert failed, logging as fallback:', e.message);
+    console.log('[FEEDBACK]', JSON.stringify({ ...row, at: new Date().toISOString() }));
+  }
 
   res.json({ ok: true });
 }

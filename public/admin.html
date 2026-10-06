@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin-Bereich | SkillMatcher</title>
+  <meta name="robots" content="noindex, nofollow" />
+  <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700;800&amp;family=DM+Sans:wght@400;500;600&amp;display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="admin.css" />
+</head>
+<body>
+  <header class="header" style="position: static; margin: 0; padding: 16px 20px;">
+    <div class="header-content">
+      <a href="/" class="brand" aria-label="SkillMatcher Startseite">
+        <img src="favicon.svg" alt="" width="40" height="40" class="brand-mark" />
+        <span class="brand-name">SkillMatcher <span class="admin-badge">Admin</span></span>
+      </a>
+    </div>
+    <a href="/" class="btn-logout" style="text-decoration:none; display:inline-block;">← Zur App</a>
+  </header>
+
+  <main class="admin-main">
+    <div id="gateMessage" class="card" style="max-width:500px; margin: 60px auto; text-align:center;">
+      <p>Prüfe Zugriff...</p>
+    </div>
+
+    <div id="adminContent" class="hidden">
+      <!-- Dashboard -->
+      <section class="card">
+        <div class="card-header admin-section-header">
+          <h3>📊 Dashboard</h3>
+          <select id="rangeSelect">
+            <option value="7">Letzte 7 Tage</option>
+            <option value="30" selected>Letzte 30 Tage</option>
+            <option value="90">Letzte 90 Tage</option>
+            <option value="365">Letztes Jahr</option>
+          </select>
+        </div>
+        <div class="admin-stat-row">
+          <div class="admin-stat-card"><span id="statUsers">–</span><label>Nutzer gesamt</label></div>
+          <div class="admin-stat-card"><span id="statActive">–</span><label>Aktive Abos</label></div>
+          <div class="admin-stat-card"><span id="statCancelled">–</span><label>Gekündigte Abos</label></div>
+        </div>
+        <div class="admin-chart-grid">
+          <div>
+            <h4>Nutzerwachstum</h4>
+            <canvas id="usersChart" height="180"></canvas>
+          </div>
+          <div>
+            <h4>Abos: abgeschlossen vs. gekündigt</h4>
+            <canvas id="subsChart" height="180"></canvas>
+          </div>
+        </div>
+      </section>
+
+      <!-- Admin-Verwaltung -->
+      <section class="card">
+        <div class="card-header"><h3>🔑 Admin-Verwaltung</h3></div>
+        <div class="admin-invite-row">
+          <input id="newAdminEmail" type="email" placeholder="email@beispiel.com" />
+          <button id="inviteAdminBtn" class="btn btn-primary" style="width:auto;">Einladen</button>
+        </div>
+        <p class="field-hint">Bestätigt sich automatisch, sobald sich die eingeladene Person per Google einloggt.</p>
+        <p id="adminActionStatus" class="field-hint"></p>
+        <table class="admin-table" id="adminsTable">
+          <thead><tr><th>E-Mail</th><th>Status</th><th>Eingeladen von</th><th>Am</th><th></th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </section>
+
+      <!-- Feedback -->
+      <section class="card">
+        <div class="card-header"><h3>💬 Feedback</h3></div>
+        <table class="admin-table" id="feedbackTable">
+          <thead><tr><th>E-Mail</th><th>Text</th><th>Seite</th><th>Am</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </section>
+
+      <!-- Störungsmeldungen -->
+      <section class="card">
+        <div class="card-header"><h3>🚩 Störungsmeldungen</h3></div>
+        <table class="admin-table" id="issuesTable">
+          <thead><tr><th>E-Mail</th><th>Text</th><th>Seite</th><th>Am</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </section>
+
+      <!-- Fehlerprotokoll -->
+      <section class="card">
+        <div class="card-header"><h3>🛠️ Fehlerprotokoll <span class="field-hint">(ohne Nutzerzuordnung)</span></h3></div>
+        <table class="admin-table" id="errorsTable">
+          <thead><tr><th>Typ</th><th>Meldung</th><th>Am</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </section>
+    </div>
+  </main>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
+  <script src="admin.js"></script>
+</body>
+</html>

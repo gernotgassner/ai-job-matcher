@@ -34,7 +34,7 @@ export default async function handler(req, res) {
   } catch (error) {
     const detail = error.raw?.message || error.message;
     console.error('Create Portal Session Error:', detail);
-    const msg = isSuperuser(decoded.email) ? `Kundenportal konnte nicht geöffnet werden: ${detail}` : 'Kundenportal konnte nicht geöffnet werden. Bitte später erneut versuchen.';
+    const msg = (await isSuperuser(decoded.email)) ? `Kundenportal konnte nicht geöffnet werden: ${detail}` : 'Kundenportal konnte nicht geöffnet werden. Bitte später erneut versuchen.';
     res.status(500).json({ error: msg });
   }
 }

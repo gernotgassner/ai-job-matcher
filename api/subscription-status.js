@@ -22,17 +22,19 @@ export default async function handler(req, res) {
 
   try {
     const { hasActiveSubscription, subscription } = await getEntitlement(decoded.email);
+    const admin = await isSuperuser(decoded.email);
 
     res.json({
       subscribed: hasActiveSubscription,
       cancelAtPeriodEnd: subscription?.cancel_at_period_end || false,
       currentPeriodEnd: subscription?.items?.data?.[0]?.current_period_end || subscription?.current_period_end || null,
-      status: subscription?.status || null
+      status: subscription?.status || null,
+      isAdmin: admin
     });
   } catch (error) {
     const detail = error.raw?.message || error.message;
     console.error('Subscription Status Error:', detail);
-    const msg = isSuperuser(decoded.email) ? `Abo-Status konnte nicht geladen werden: ${detail}` : 'Abo-Status konnte nicht geladen werden.';
+    const msg = (await isSuperuser(decoded.email)) ? `Abo-Status konnte nicht geladen werden: ${detail}` : 'Abo-Status konnte nicht geladen werden.';
     res.status(500).json({ error: msg });
   }
 }

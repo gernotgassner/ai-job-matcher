@@ -1,8 +1,32 @@
 import { OAuth2Client } from 'google-auth-library';
 import jwt from 'jsonwebtoken';
+import { getSupabase } from './_supabase.js';
 
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
-const users = new Map();
+
+// Bestätigt eine ausstehende Admin-Einladung, sobald sich genau diese
+// E-Mail-Adresse erfolgreich per Google-Login anmeldet - das ist der
+// geforderte Nachweis, dass die Person wirklich Zugriff auf dieses
+// Google-Konto hat. Wirft nie (Login darf daran nicht scheitern).
+async function confirmPendingAdminInvite(email) {
+  try {
+    const supabase = getSupabase();
+    const { data } = await supabase
+      .from('admin_users')
+      .select('status')
+      .eq('email', email.toLowerCase())
+      .eq('status', 'pending')
+      .maybeSingle();
+    if (data) {
+      await supabase
+        .from('admin_users')
+        .update({ status: 'confirmed', confirmed_at: new Date().toISOString() })
+        .eq('email', email.toLowerCase());
+    }
+  } catch (e) {
+    console.error('confirmPendingAdminInvite failed (non-fatal):', e.message);
+  }
+}
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -36,13 +60,7 @@ export default async function handler(req, res) {
       return res.status(401).json({ error: 'E-Mail-Adresse ist bei Google nicht verifiziert.' });
     }
 
-    if (!users.has(email)) {
-      users.set(email, {
-        cvText: '',
-        favorites: {},
-        lastScan: []
-      });
-    }
+    await confirmPendingAdminInvite(email);
 
     const jwtToken = jwt.sign(
       { email },
@@ -50,11 +68,7 @@ export default async function handler(req, res) {
       { expiresIn: '7d' }
     );
 
-    res.json({
-      token: jwtToken,
-      user: { email },
-      hasCv: !!users.get(email).cvText
-    });
+    res.json({ token: jwtToken, user: { email } });
   } catch (error) {
     console.error('Google Login Error:', error.message);
     if (!process.env.GOOGLE_CLIENT_ID) {

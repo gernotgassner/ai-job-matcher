@@ -1,6 +1,7 @@
 import axios from 'axios';
 import jwt from 'jsonwebtoken';
 import { getEntitlement, isSuperuser } from './_stripe.js';
+import { logError } from './_supabase.js';
 
 // DACH-Region: einzig erlaubte Länder für die Jobsuche
 const ALLOWED_COUNTRIES = new Set(['Germany', 'Austria', 'Switzerland']);
@@ -216,6 +217,7 @@ Ein Eintrag in "results" pro Stellenanzeige, in Reihenfolge des "index"-Feldes.`
   } catch (error) {
     const detail = error.response?.data?.error?.message || error.message;
     console.error('AI analyze+score error:', error.response?.status, detail);
+    logError('ai', `HTTP ${error.response?.status || 'network'}: ${detail}`);
     return { error: `${error.response?.status ? 'HTTP ' + error.response.status + ': ' : ''}${detail}`.slice(0, 300) };
   }
 }
@@ -248,7 +250,7 @@ export default async function handler(req, res) {
   const decoded = verifyToken(token);
   if (!decoded) return res.status(401).json({ error: 'Unauthorized' });
 
-  const superuser = isSuperuser(decoded.email);
+  const superuser = await isSuperuser(decoded.email);
 
   // Seit dem Produkt-Pivot ist die Suche selbst fuer alle unbegrenzt moeglich.
   // Das Abo steuert nur noch, wie viele/welche Ergebnisse angezeigt werden.
@@ -431,6 +433,7 @@ export default async function handler(req, res) {
     else if (body) bodyMessage = JSON.stringify(body);
 
     console.error('JSearch API Error:', { status, statusText: error.response?.statusText, message: bodyMessage, code: error.code });
+    logError('jsearch', `HTTP ${status || error.code || 'network'}: ${bodyMessage || error.message}`);
 
     let detailedReason;
     if (!rapidApiKey) {

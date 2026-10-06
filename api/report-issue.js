@@ -1,4 +1,5 @@
 import jwt from 'jsonwebtoken';
+import { getSupabase } from './_supabase.js';
 
 function verifyToken(token) {
   try {
@@ -8,9 +9,6 @@ function verifyToken(token) {
   }
 }
 
-// TODO sobald SUPABASE_URL/SUPABASE_SERVICE_ROLE_KEY gesetzt sind: Meldung in
-// eine "issue_reports"-Tabelle schreiben statt nur zu loggen, damit sie im
-// Admin-Bereich (Störungsmeldungen) ausgewertet werden kann.
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -28,13 +26,21 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Text fehlt' });
   }
 
-  console.log('[ISSUE_REPORT]', JSON.stringify({
+  const row = {
     email: decoded.email,
     text: text.trim().slice(0, 2000),
     page: page || null,
-    userAgent: req.headers['user-agent'] || null,
-    at: new Date().toISOString()
-  }));
+    user_agent: req.headers['user-agent'] || null
+  };
+
+  try {
+    const supabase = getSupabase();
+    const { error } = await supabase.from('issue_reports').insert(row);
+    if (error) throw error;
+  } catch (e) {
+    console.error('Issue report insert failed, logging as fallback:', e.message);
+    console.log('[ISSUE_REPORT]', JSON.stringify({ ...row, at: new Date().toISOString() }));
+  }
 
   res.json({ ok: true });
 }
