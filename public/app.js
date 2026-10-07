@@ -261,12 +261,6 @@ $('cvInput').addEventListener('change', async (e) => {
 
     showStatus(`✅ Lebenslauf gelesen: ${file.name} (${text.length.toLocaleString('de-DE')} Zeichen)`, 'success');
     updateCvStatus(file.name);
-
-    fetch(`${API_BASE}/cv`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${currentToken}` },
-      body: JSON.stringify({ email: currentUser, cvText: text })
-    }).catch(() => {});
   } catch (error) {
     console.error('CV Upload Error:', error);
     showStatus(`❌ ${error.message || 'Fehler beim Hochladen'}`, 'error');

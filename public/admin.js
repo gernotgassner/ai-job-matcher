@@ -75,7 +75,7 @@ function renderCharts(stats) {
 async function loadStats() {
   const days = $('rangeSelect').value;
   try {
-    const stats = await apiGet(`/admin/stats?days=${days}`);
+    const stats = await apiGet(`/admin?resource=stats&days=${days}`);
     $('statUsers').textContent = stats.totals.users;
     $('statActive').textContent = stats.totals.activeSubscriptions;
     $('statCancelled').textContent = stats.totals.cancelledSubscriptions;
@@ -87,7 +87,7 @@ async function loadStats() {
 
 async function loadFeedback() {
   try {
-    const { items } = await apiGet('/admin/feedback');
+    const { items } = await apiGet('/admin?resource=feedback');
     $('feedbackTable').querySelector('tbody').innerHTML = items.length
       ? items.map((f) => `<tr><td>${escapeHtml(f.email)}</td><td class="wrap">${escapeHtml(f.text)}</td><td>${escapeHtml(f.page)}</td><td>${fmtDate(f.created_at)}</td></tr>`).join('')
       : '<tr><td colspan="4">Noch kein Feedback.</td></tr>';
@@ -98,7 +98,7 @@ async function loadFeedback() {
 
 async function loadIssues() {
   try {
-    const { items } = await apiGet('/admin/issues');
+    const { items } = await apiGet('/admin?resource=issues');
     $('issuesTable').querySelector('tbody').innerHTML = items.length
       ? items.map((i) => `<tr><td>${escapeHtml(i.email)}</td><td class="wrap">${escapeHtml(i.text)}</td><td>${escapeHtml(i.page)}</td><td>${fmtDate(i.created_at)}</td></tr>`).join('')
       : '<tr><td colspan="4">Keine Störungsmeldungen.</td></tr>';
@@ -109,7 +109,7 @@ async function loadIssues() {
 
 async function loadErrors() {
   try {
-    const { items } = await apiGet('/admin/errors');
+    const { items } = await apiGet('/admin?resource=errors');
     $('errorsTable').querySelector('tbody').innerHTML = items.length
       ? items.map((e) => `<tr><td>${escapeHtml(e.error_type)}</td><td class="wrap">${escapeHtml(e.message)}</td><td>${fmtDate(e.created_at)}</td></tr>`).join('')
       : '<tr><td colspan="3">Keine Fehler protokolliert.</td></tr>';
@@ -120,7 +120,7 @@ async function loadErrors() {
 
 async function loadAdmins() {
   try {
-    const { items } = await apiGet('/admin/admins');
+    const { items } = await apiGet('/admin?resource=admins');
     $('adminsTable').querySelector('tbody').innerHTML = items.map((a) => `
       <tr>
         <td>${escapeHtml(a.email)}</td>
@@ -137,7 +137,7 @@ async function loadAdmins() {
 async function removeAdmin(adminEmail) {
   if (!confirm(`Admin-Zugriff für ${adminEmail} wirklich entfernen?`)) return;
   try {
-    const res = await fetch(`${API_BASE}/admin/admins?email=${encodeURIComponent(adminEmail)}`, {
+    const res = await fetch(`${API_BASE}/admin?resource=admins&email=${encodeURIComponent(adminEmail)}`, {
       method: 'DELETE',
       headers: { Authorization: `Bearer ${token}` }
     });
@@ -158,7 +158,7 @@ $('inviteAdminBtn').addEventListener('click', async () => {
     return;
   }
   try {
-    const res = await fetch(`${API_BASE}/admin/admins`, {
+    const res = await fetch(`${API_BASE}/admin?resource=admins`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify({ email: newEmail })
