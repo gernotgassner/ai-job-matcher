@@ -119,11 +119,13 @@ async function refreshSubscriptionStatus() {
     const res = await fetch(`${API_BASE}/subscription-status`, {
       headers: { Authorization: `Bearer ${currentToken}` }
     });
-    const data = await res.json();
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok && data.isAdmin === undefined) throw new Error(data.error || 'Fehler');
+
+    $('adminLink').classList.toggle('hidden', !data.isAdmin);
     if (!res.ok) throw new Error(data.error || 'Fehler');
 
     currentEntitlement = { subscribed: data.subscribed };
-    $('adminLink').classList.toggle('hidden', !data.isAdmin);
 
     if (data.subscribed) {
       const renewalNote = data.currentPeriodEnd

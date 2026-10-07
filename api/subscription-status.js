@@ -20,9 +20,19 @@ export default async function handler(req, res) {
   const decoded = verifyToken(token);
   if (!decoded) return res.status(401).json({ error: 'Unauthorized' });
 
+  // Admin-Status unabhängig vom Stripe-Aufruf ermitteln, damit ein Stripe-
+  // Problem (z. B. vorübergehend nicht erreichbar) niemals den Admin-Zugriff
+  // verdeckt - vorher führte ein Fehler in getEntitlement() dazu, dass die
+  // ganze Antwort fehlschlug, bevor isAdmin überhaupt berechnet wurde.
+  let admin = false;
+  try {
+    admin = await isSuperuser(decoded.email);
+  } catch (error) {
+    console.error('isSuperuser check failed:', error.message);
+  }
+
   try {
     const { hasActiveSubscription, subscription } = await getEntitlement(decoded.email);
-    const admin = await isSuperuser(decoded.email);
 
     res.json({
       subscribed: hasActiveSubscription,
@@ -34,7 +44,9 @@ export default async function handler(req, res) {
   } catch (error) {
     const detail = error.raw?.message || error.message;
     console.error('Subscription Status Error:', detail);
-    const msg = (await isSuperuser(decoded.email)) ? `Abo-Status konnte nicht geladen werden: ${detail}` : 'Abo-Status konnte nicht geladen werden.';
-    res.status(500).json({ error: msg });
+    const msg = admin ? `Abo-Status konnte nicht geladen werden: ${detail}` : 'Abo-Status konnte nicht geladen werden.';
+    // isAdmin auch im Fehlerfall mitgeben, damit admin.html trotzdem
+    // funktioniert, selbst wenn der Stripe-Teil gerade klemmt.
+    res.status(500).json({ error: msg, isAdmin: admin });
   }
 }

@@ -185,8 +185,11 @@ async function init() {
 
   try {
     const res = await fetch(`${API_BASE}/subscription-status`, { headers: { Authorization: `Bearer ${token}` } });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Fehler');
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok && data.isAdmin === undefined) {
+      throw new Error(data.error || `HTTP ${res.status}`);
+    }
 
     if (!data.isAdmin) {
       gate.innerHTML = '<p>Kein Zugriff auf den Admin-Bereich.</p><p><a href="/">Zurück zur App</a></p>';
