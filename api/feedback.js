@@ -26,7 +26,7 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Text fehlt' });
   }
 
-  const row = { email: decoded.email, text: text.trim().slice(0, 2000), page: page || null };
+  const row = { text: text.trim().slice(0, 2000), page: page || null };
 
   try {
     const supabase = getSupabase();

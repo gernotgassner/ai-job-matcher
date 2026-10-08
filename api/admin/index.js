@@ -48,19 +48,47 @@ async function fetchAllStripe(listFn, params) {
   return items;
 }
 
+// Admin-E-Mails (fest hinterlegter Haupt-Admin + alle Einträge in
+// admin_users, egal ob bestätigt oder noch ausstehend) - diese sollen die
+// Nutzer-/Abo-Statistiken nicht verfälschen.
+async function getAdminEmailSet() {
+  const emails = new Set([PRIMARY_ADMIN_EMAIL]);
+  try {
+    const supabase = getSupabase();
+    const { data, error } = await supabase.from('admin_users').select('email');
+    if (error) throw error;
+    for (const row of data || []) emails.add(row.email.toLowerCase());
+  } catch (e) {
+    console.error('getAdminEmailSet: admin_users lookup failed (continuing with primary admin only):', e.message);
+  }
+  return emails;
+}
+
 async function handleStats(req, res) {
   const days = Math.min(365, Math.max(7, parseInt(req.query?.days || '90', 10) || 90));
   const sinceUnix = Math.floor((Date.now() - days * DAY_MS) / 1000);
+  const adminEmails = await getAdminEmailSet();
 
-  const customers = await fetchAllStripe((stripe, p) => stripe.customers.list(p), { created: { gte: sinceUnix } });
-  const subscriptions = await fetchAllStripe((stripe, p) => stripe.subscriptions.list(p), { status: 'all', created: { gte: sinceUnix } });
+  const isNotAdminCustomer = (c) => !c.email || !adminEmails.has(c.email.toLowerCase());
+  // subscriptions.customer ist normalerweise nur eine ID - expand holt das
+  // volle Customer-Objekt (inkl. E-Mail) mit, damit wir hier filtern können.
+  const isNotAdminSub = (s) => isNotAdminCustomer(typeof s.customer === 'object' && s.customer ? s.customer : { email: null });
+
+  const customers = (await fetchAllStripe((stripe, p) => stripe.customers.list(p), { created: { gte: sinceUnix } })).filter(isNotAdminCustomer);
+  const subscriptions = (await fetchAllStripe(
+    (stripe, p) => stripe.subscriptions.list(p),
+    { status: 'all', created: { gte: sinceUnix }, expand: ['data.customer'] }
+  )).filter(isNotAdminSub);
 
   const newUserSeries = fillSeries(bucketByDay(customers.map((c) => c.created)), days);
   const resolvedSubsSeries = fillSeries(bucketByDay(subscriptions.map((s) => s.created)), days);
   const cancelledSubsSeries = fillSeries(bucketByDay(subscriptions.filter((s) => s.canceled_at).map((s) => s.canceled_at)), days);
 
-  const allCustomers = await fetchAllStripe((stripe, p) => stripe.customers.list(p), {});
-  const allSubs = await fetchAllStripe((stripe, p) => stripe.subscriptions.list(p), { status: 'all' });
+  const allCustomers = (await fetchAllStripe((stripe, p) => stripe.customers.list(p), {})).filter(isNotAdminCustomer);
+  const allSubs = (await fetchAllStripe(
+    (stripe, p) => stripe.subscriptions.list(p),
+    { status: 'all', expand: ['data.customer'] }
+  )).filter(isNotAdminSub);
 
   res.json({
     days,
@@ -79,7 +107,7 @@ async function handleFeedback(req, res) {
   const supabase = getSupabase();
   const { data, error } = await supabase
     .from('feedback')
-    .select('id, email, text, page, created_at')
+    .select('id, text, page, created_at')
     .order('created_at', { ascending: false })
     .limit(200);
   if (error) throw error;

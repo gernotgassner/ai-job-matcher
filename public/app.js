@@ -629,8 +629,10 @@ async function submitSupportMessage(kind, text, statusEl, modalId, btn) {
     });
     const data = await res.json().catch(() => ({}));
     if (res.ok) {
-      statusEl.textContent = '✅ Danke, deine Nachricht ist angekommen!';
-      setTimeout(() => closeModal(modalId), 1200);
+      statusEl.textContent = kind === 'feedback'
+        ? '✅ Danke! Dein Feedback wurde anonym gespeichert.'
+        : '✅ Danke! Deine Meldung ist bei uns angekommen, wir melden uns bei Rückfragen per E-Mail.';
+      setTimeout(() => closeModal(modalId), 1800);
     } else {
       statusEl.textContent = `❌ ${data.error || 'Senden fehlgeschlagen. Bitte später erneut versuchen.'}`;
     }

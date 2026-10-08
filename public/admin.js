@@ -89,8 +89,8 @@ async function loadFeedback() {
   try {
     const { items } = await apiGet('/admin?resource=feedback');
     $('feedbackTable').querySelector('tbody').innerHTML = items.length
-      ? items.map((f) => `<tr><td>${escapeHtml(f.email)}</td><td class="wrap">${escapeHtml(f.text)}</td><td>${escapeHtml(f.page)}</td><td>${fmtDate(f.created_at)}</td></tr>`).join('')
-      : '<tr><td colspan="4">Noch kein Feedback.</td></tr>';
+      ? items.map((f) => `<tr><td class="wrap">${escapeHtml(f.text)}</td><td>${escapeHtml(f.page)}</td><td>${fmtDate(f.created_at)}</td></tr>`).join('')
+      : '<tr><td colspan="3">Noch kein Feedback.</td></tr>';
   } catch (error) {
     console.error('Feedback load error:', error);
   }

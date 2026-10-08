@@ -5,10 +5,10 @@
 create extension if not exists pgcrypto;
 
 -- Kundenfeedback über den "Feedback geben"-Button im Profil.
--- Enthält bewusst die E-Mail, damit bei Bedarf nachgefragt werden kann.
+-- ABSICHTLICH OHNE E-Mail-Spalte - anonym, im Gegensatz zu issue_reports
+-- (Störungsmeldungen), wo die E-Mail für Rückfragen gebraucht wird.
 create table if not exists feedback (
   id uuid primary key default gen_random_uuid(),
-  email text not null,
   text text not null,
   page text,
   created_at timestamptz not null default now()
