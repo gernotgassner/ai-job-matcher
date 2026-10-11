@@ -1,4 +1,5 @@
 import { requireAdmin } from '../_admin-auth.js';
+import { apiPreamble } from '../_http.js';
 import { getSupabase } from '../_supabase.js';
 import { getStripe } from '../_stripe.js';
 
@@ -182,10 +183,7 @@ async function handleAdmins(req, res, admin) {
 }
 
 export default async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-  if (req.method === 'OPTIONS') return res.status(200).end();
+  if (apiPreamble(req, res)) return;
 
   const admin = await requireAdmin(req);
   if (!admin) return res.status(403).json({ error: 'Forbidden' });

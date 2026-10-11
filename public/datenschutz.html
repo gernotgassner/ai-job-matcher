@@ -109,6 +109,14 @@
       OpenAI, Anthropic und RapidAPI prüfen und hier referenzieren.]</span>
     </p>
     <p>
+      Vor der Übermittlung entfernen wir automatisiert eindeutig erkennbare
+      Kontaktdaten aus dem Text (E-Mail-Adressen, Telefonnummern, Links,
+      Adresszeilen sowie Zeilen mit Geburtsdaten und ähnlichen Stammdaten).
+      Namen und Arbeitgeber lassen sich technisch nicht zuverlässig
+      erkennen; die KI wird angewiesen, sie nicht zu berücksichtigen, ein
+      vollständiger Ausschluss ist dadurch aber nicht garantiert.
+    </p>
+    <p>
       Dein Lebenslauf wird von uns server- oder datenbankseitig zu keinem
       Zeitpunkt gespeichert. Du kannst ihn jederzeit über „Lebenslauf löschen"
       aus deinem Browser entfernen.
@@ -144,11 +152,22 @@
       Protokolle im Regelbetrieb nicht gezielt personenbezogen zu.
     </p>
 
+    <p>
+      <strong>Missbrauchsschutz:</strong> Um übermässige Anfragen zu
+      begrenzen, speichern wir kurzlebige Zähler in unserer Datenbank
+      (Supabase). Als Schlüssel dient ein nicht umkehrbarer Hash deiner
+      E-Mail-Adresse bzw. IP-Adresse, nicht der Klartext. Die Zähler werden
+      nach spätestens zwei Tagen gelöscht. Rechtsgrundlage: berechtigtes
+      Interesse an der Sicherheit und Stabilität des Dienstes
+      (Art. 6 Abs. 1 lit. f DSGVO).
+    </p>
+
     <h2>7. Cookies &amp; lokale Speicherung</h2>
     <p>
       SkillMatcher selbst setzt <strong>keine eigenen Tracking-Cookies</strong>.
-      Anmeldestatus, Lebenslauf und Favoriten werden im <code>localStorage</code>
-      deines Browsers abgelegt – das ist technisch kein Cookie, aber ebenfalls
+      Anmeldestatus (Sitzungs-Token, 72 Stunden gültig), Lebenslauf und
+      Favoriten werden im <code>localStorage</code> deines Browsers abgelegt
+      (beim Abmelden werden Token und Lebenslauf gelöscht) – das ist technisch kein Cookie, aber ebenfalls
       lokal auf deinem Gerät gespeicherte Information, die du jederzeit über die
       Browser-Einstellungen oder die Funktionen in der App (z. B. „Abmelden",
       „Lebenslauf löschen") entfernen kannst.

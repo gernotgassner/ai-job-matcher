@@ -1,20 +1,11 @@
-import jwt from 'jsonwebtoken';
 import { getSupabase } from './_supabase.js';
-
-function verifyToken(token) {
-  try {
-    return jwt.verify(token, process.env.JWT_SECRET || 'dev-secret-key-change-in-production');
-  } catch {
-    return null;
-  }
-}
+import { verifyToken } from './_auth.js';
+import { apiPreamble } from './_http.js';
+import { rateLimit } from './_ratelimit.js';
 
 export default async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
-  if (req.method === 'OPTIONS') return res.status(200).end();
+  if (apiPreamble(req, res)) return;
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   const token = (req.headers.authorization || '').split(' ')[1];
@@ -22,11 +13,17 @@ export default async function handler(req, res) {
   if (!decoded) return res.status(401).json({ error: 'Unauthorized' });
 
   const { text, page } = req.body || {};
-  if (!text || !text.trim()) {
+  if (typeof text !== 'string' || !text.trim()) {
     return res.status(400).json({ error: 'Text fehlt' });
   }
 
-  const row = { text: text.trim().slice(0, 2000), page: page || null };
+  // Schutz vor Spam/Flooding der Tabelle (5 Meldungen pro Stunde und Nutzer)
+  const rl = await rateLimit('feedback', decoded.email, 5, 3600);
+  if (!rl.allowed) {
+    return res.status(429).json({ error: 'Zu viele Meldungen in kurzer Zeit. Bitte versuche es später erneut.' });
+  }
+
+  const row = { text: text.trim().slice(0, 2000), page: typeof page === 'string' ? page.slice(0, 200) : null };
 
   try {
     const supabase = getSupabase();

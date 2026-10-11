@@ -5,9 +5,9 @@ const token = localStorage.getItem('jobMatcherToken');
 const email = localStorage.getItem('jobMatcherEmail');
 
 function escapeHtml(text) {
-  const div = document.createElement('div');
-  div.textContent = text == null ? '' : String(text);
-  return div.innerHTML;
+  return String(text == null ? '' : text).replace(/[&<>"']/g, (c) => (
+    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+  ));
 }
 
 function fmtDate(iso) {
@@ -127,7 +127,7 @@ async function loadAdmins() {
         <td><span class="status-pill ${a.status}">${a.status === 'confirmed' ? 'Bestätigt' : 'Ausstehend'}</span></td>
         <td>${escapeHtml(a.invited_by)}</td>
         <td>${fmtDate(a.confirmed_at || a.invited_at)}</td>
-        <td>${a.primary ? '' : `<button class="admin-remove-btn" onclick="removeAdmin('${escapeHtml(a.email)}')">Entfernen</button>`}</td>
+        <td>${a.primary ? '' : `<button class="admin-remove-btn" data-remove-admin="${escapeHtml(a.email)}">Entfernen</button>`}</td>
       </tr>`).join('');
   } catch (error) {
     console.error('Admins load error:', error);
@@ -148,7 +148,10 @@ async function removeAdmin(adminEmail) {
     alert('Fehler: ' + error.message);
   }
 }
-window.removeAdmin = removeAdmin;
+$('adminsTable').addEventListener('click', (e) => {
+  const btn = e.target.closest('[data-remove-admin]');
+  if (btn) removeAdmin(btn.dataset.removeAdmin);
+});
 
 $('inviteAdminBtn').addEventListener('click', async () => {
   const newEmail = $('newAdminEmail').value.trim();

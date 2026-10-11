@@ -28,7 +28,7 @@ async function extractCvText(file) {
   if (name.endsWith('.pdf')) {
     if (!window.pdfjsLib) throw new Error('PDF-Leser konnte nicht geladen werden. Bitte Seite neu laden.');
     window.pdfjsLib.GlobalWorkerOptions.workerSrc =
-      'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+      '/vendor/pdf.worker.min.js';
     const pdf = await window.pdfjsLib.getDocument({ data: await file.arrayBuffer() }).promise;
     const pages = [];
     for (let i = 1; i <= pdf.numPages; i++) {
@@ -50,16 +50,39 @@ async function extractCvText(file) {
 
 const $ = (id) => document.getElementById(id);
 
+// Favoriten pro Nutzer getrennt speichern - auf einem geteilten Gerät sieht
+// sonst der nächste Nutzer die Favoriten des vorherigen.
+function favoritesKey() {
+  return `jobMatcherFavorites:${currentUser || ''}`;
+}
+
 function loadFavoritesFromStorage() {
   try {
-    return JSON.parse(localStorage.getItem('jobMatcherFavorites') || '{}');
+    // Einmalige Migration des früheren, nutzerunabhängigen Schlüssels
+    const legacy = localStorage.getItem('jobMatcherFavorites');
+    if (legacy && currentUser) {
+      if (!localStorage.getItem(favoritesKey())) localStorage.setItem(favoritesKey(), legacy);
+      localStorage.removeItem('jobMatcherFavorites');
+    }
+    return JSON.parse(localStorage.getItem(favoritesKey()) || '{}');
   } catch {
     return {};
   }
 }
 
 function saveFavoritesToStorage() {
-  localStorage.setItem('jobMatcherFavorites', JSON.stringify(favorites));
+  localStorage.setItem(favoritesKey(), JSON.stringify(favorites));
+}
+
+// Sicherheits-Helfer: Links aus Fremddaten (Jobbörse) nur als http(s) zulassen,
+// sonst wären z. B. javascript:-URLs (XSS) möglich.
+function safeUrl(value) {
+  try {
+    const u = new URL(String(value));
+    return (u.protocol === 'https:' || u.protocol === 'http:') ? u.href : '#';
+  } catch {
+    return '#';
+  }
 }
 
 // --- Google Login --------------------------------------------------------
@@ -110,15 +133,16 @@ async function handleGoogleLogin(response) {
 // --- Abo-Status ------------------------------------------------------------
 // Suche selbst ist seit dem Produkt-Pivot für alle unbegrenzt möglich - das
 // Abo steuert nur noch, wie viele/welche Ergebnisse angezeigt werden.
-async function refreshSubscriptionStatus() {
+async function refreshSubscriptionStatus(opts = {}) {
   const box = $('subscriptionStatusText');
   const subscribeBtn = $('subscribeBtn');
   const manageBtn = $('manageSubBtn');
 
   try {
-    const res = await fetch(`${API_BASE}/subscription-status`, {
+    const res = await fetch(`${API_BASE}/subscription-status${opts.fresh ? '?fresh=1' : ''}`, {
       headers: { Authorization: `Bearer ${currentToken}` }
     });
+    if (res.status === 401) { handleUnauthorized(); return; }
     const data = await res.json().catch(() => ({}));
     if (!res.ok && data.isAdmin === undefined) throw new Error(data.error || 'Fehler');
 
@@ -208,21 +232,74 @@ $('manageSubBtn').addEventListener('click', () => {
   callStripeEndpoint('/create-portal-session', $('manageSubBtn'), 'Kundenportal konnte nicht geöffnet werden');
 });
 
+function clearCvState() {
+  currentCvText = null;
+  currentCvFileName = null;
+  localStorage.removeItem('jobMatcherCvText');
+  localStorage.removeItem('jobMatcherCvFileName');
+  lastSearchSignature = null;
+  lastCursor = null;
+  updateCvStatus(null);
+}
+
+function resetResultsUi() {
+  currentJobs = [];
+  renderCvProfile(null);
+  renderCareerGoalFit(null);
+  renderImprovementTips(null);
+  renderUpsell(null);
+  renderJobs([]);
+  $('careerGoalInput').value = '';
+  $('foundJobsCount').textContent = '0';
+}
+
 function loginSuccess(email, token) {
+  // Meldet sich eine ANDERE Person als zuletzt an (z. B. nach abgelaufener
+  // Sitzung auf einem geteilten Gerät), darf sie den Lebenslauf der
+  // vorherigen nicht erben.
+  const previousEmail = localStorage.getItem('jobMatcherEmail');
+  if (previousEmail && previousEmail !== email) {
+    clearCvState();
+    resetResultsUi();
+  }
+
   currentUser = email;
   currentToken = token;
   localStorage.setItem('jobMatcherToken', token);
   localStorage.setItem('jobMatcherEmail', email);
+  $('loginNotice').textContent = '';
+
+  favorites = loadFavoritesFromStorage();
+  $('favoritesCount').textContent = Object.keys(favorites).length;
+  renderFavorites(Object.values(favorites));
   render();
 }
 
+// Abmelden: räumt Token UND den lokal gespeicherten Lebenslauf auf, damit
+// auf geteilten Geräten nichts zurückbleibt.
 $('logoutBtn').addEventListener('click', () => {
   currentUser = null;
   currentToken = null;
+  currentEntitlement = { subscribed: false };
   localStorage.removeItem('jobMatcherToken');
   localStorage.removeItem('jobMatcherEmail');
+  clearCvState();
+  resetResultsUi();
+  favorites = {};
+  renderFavorites([]);
   render();
 });
+
+// Token abgelaufen/ungültig (HTTP 401): zurück zur Anmeldung. Der Lebenslauf
+// bleibt erhalten, falls sich dieselbe Person wieder anmeldet (siehe
+// loginSuccess); die E-Mail bleibt dafür als "letzter Nutzer" gespeichert.
+function handleUnauthorized() {
+  currentUser = null;
+  currentToken = null;
+  localStorage.removeItem('jobMatcherToken');
+  $('loginNotice').textContent = 'Deine Sitzung ist abgelaufen. Bitte melde dich erneut an.';
+  render();
+}
 
 // --- CV Upload -------------------------------------------------------------
 $('cvInput').addEventListener('change', async (e) => {
@@ -311,13 +388,29 @@ $('scanBtn').addEventListener('click', async () => {
   $('scanBtn').disabled = true;
 
   try {
-    const res = await fetch(`${API_BASE}/jobs-search`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${currentToken}` },
-      body: JSON.stringify({ email: currentUser, cvText: currentCvText, careerGoal, country, cursor: cursorToSend })
-    });
+    // Clientseitiges Zeitlimit knapp über der Server-Laufzeit (60 s), damit die
+    // Oberfläche nie endlos "Suche läuft" zeigt, falls der Server nicht antwortet.
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 70000);
+    let res, data;
+    try {
+      res = await fetch(`${API_BASE}/jobs-search`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${currentToken}` },
+        body: JSON.stringify({ cvText: currentCvText, careerGoal, country, cursor: cursorToSend }),
+        signal: controller.signal
+      });
+      data = await res.json().catch(() => null);
+    } finally {
+      clearTimeout(timer);
+    }
 
-    const data = await res.json();
+    if (res.status === 401) { handleUnauthorized(); return; }
+
+    if (!data) {
+      showStatus('❌ Der Server hat gerade nicht rechtzeitig geantwortet. Bitte versuche es in einem Moment erneut.', 'error');
+      return;
+    }
 
     if (!res.ok) {
       showStatus(`❌ ${data.error || 'Fehler bei der Jobsuche'}`, 'error');
@@ -353,7 +446,9 @@ $('scanBtn').addEventListener('click', async () => {
     renderJobs(currentJobs);
   } catch (error) {
     console.error('Search Error:', error);
-    showStatus('Fehler bei der Jobsuche', 'error');
+    showStatus(error.name === 'AbortError'
+      ? '❌ Die Suche hat zu lange gedauert. Bitte versuche es erneut.'
+      : 'Fehler bei der Jobsuche', 'error');
   } finally {
     $('scanBtn').disabled = false;
   }
@@ -424,7 +519,7 @@ function renderUpsell(data) {
   if (lockedMoreCount > 0) parts.push(`${lockedMoreCount} Treffer im Bereich 50-84 %`);
   box.innerHTML = `
     <p>🔒 Mit Abo siehst du zusätzlich: ${parts.join(' und ')} – plus Verbesserungs­empfehlungen je Job.</p>
-    <button class="btn btn-primary full" onclick="startCheckoutFlow()">💳 Abo-Vorteile ansehen</button>`;
+    <button class="btn btn-primary full" data-action="open-subscribe">💳 Abo-Vorteile ansehen</button>`;
   box.classList.remove('hidden');
 }
 
@@ -461,7 +556,7 @@ function renderJobs(jobs) {
   $('foundJobsCount').textContent = visible.length;
 
   const toggle = moreJobs.length > 0
-    ? `<button class="btn btn-secondary full" onclick="setShowMoreTier(${!showMoreTier})">
+    ? `<button class="btn btn-secondary full" data-action="toggle-more">
         Weitere Jobs ${showMoreTier ? 'ausblenden' : `anzeigen (${moreJobs.length})`}
        </button>`
     : '';
@@ -495,14 +590,14 @@ function renderJobCard(job) {
       </div>` : ''}
       ${renderBreakdown(job)}
       ${job.growthRecommendation ? `
-      <div id="growth-${job.id}" class="growth-tip-box hidden">
+      <div id="growth-${escapeHtml(job.id)}" class="growth-tip-box hidden">
         <strong>📈 So kommst du auf 100 %:</strong> ${escapeHtml(job.growthRecommendation)}
       </div>` : ''}
       <div class="job-actions">
-        <a href="${job.url}" target="_blank" rel="noopener noreferrer" class="btn btn-job-link">💼 Job ansehen</a>
+        <a href="${escapeHtml(safeUrl(job.url))}" target="_blank" rel="noopener noreferrer" class="btn btn-job-link">💼 Job ansehen</a>
         ${job.growthRecommendation ? `
-        <button class="btn btn-growth" onclick="toggleGrowthTip('${job.id}')">📈 Empfehlung</button>` : ''}
-        <button class="btn btn-favorite ${isFav ? 'active' : ''}" data-id="${job.id}" onclick="toggleFavorite('${job.id}')">
+        <button class="btn btn-growth" data-action="growth" data-id="${escapeHtml(job.id)}">📈 Empfehlung</button>` : ''}
+        <button class="btn btn-favorite ${isFav ? 'active' : ''}" data-action="favorite" data-id="${escapeHtml(job.id)}">
           ${isFav ? '★ Favorit' : '☆ Favorit'}
         </button>
       </div>
@@ -510,8 +605,24 @@ function renderJobCard(job) {
   `;
 }
 
+// Zentrale Klick-Behandlung für dynamisch erzeugte Buttons (statt inline
+// onclick-Attributen mit eingebetteten Fremddaten - XSS-Risiko, und mit einer
+// strengen Content-Security-Policy ohnehin nicht zulässig).
+document.addEventListener('click', (e) => {
+  const el = e.target.closest('[data-action]');
+  if (!el) return;
+  const id = el.dataset.id;
+  switch (el.dataset.action) {
+    case 'open-subscribe': startCheckoutFlow(); break;
+    case 'toggle-more': setShowMoreTier(!showMoreTier); break;
+    case 'growth': toggleGrowthTip(id); break;
+    case 'favorite': toggleFavorite(id); break;
+    case 'remove-favorite': removeFavorite(id); break;
+  }
+});
+
 function toggleGrowthTip(jobId) {
-  const el = $(`growth-${jobId}`);
+  const el = document.getElementById(`growth-${jobId}`);
   if (el) el.classList.toggle('hidden');
 }
 
@@ -561,8 +672,8 @@ function renderFavorites(favoriteList) {
         ${job.source ? `<span class="job-source">Quelle: ${escapeHtml(job.source)}</span>` : ''}
       </div>
       <div class="job-actions">
-        <a href="${job.url}" target="_blank" rel="noopener noreferrer" class="btn btn-job-link">💼 Job ansehen</a>
-        <button class="favorite-remove-btn" onclick="removeFavorite('${job.id}')">✕ Entfernen</button>
+        <a href="${escapeHtml(safeUrl(job.url))}" target="_blank" rel="noopener noreferrer" class="btn btn-job-link">💼 Job ansehen</a>
+        <button class="favorite-remove-btn" data-action="remove-favorite" data-id="${escapeHtml(job.id)}">✕ Entfernen</button>
       </div>
     </div>
   `).join('');
@@ -606,10 +717,12 @@ function render() {
   }
 }
 
+// Maskiert auch Anführungszeichen - nötig, sobald Werte in HTML-ATTRIBUTE
+// eingesetzt werden (die DOM-Variante über innerHTML maskiert " und ' nicht).
 function escapeHtml(text) {
-  const div = document.createElement('div');
-  div.textContent = text;
-  return div.innerHTML;
+  return String(text == null ? '' : text).replace(/[&<>"']/g, (c) => (
+    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+  ));
 }
 
 // --- Feedback & Störungsmeldung ------------------------------------------
@@ -689,7 +802,7 @@ window.addEventListener('DOMContentLoaded', () => {
   const checkoutResult = new URLSearchParams(window.location.search).get('checkout');
   if (checkoutResult === 'success') {
     showStatus('✅ Vielen Dank! Dein Abo ist aktiv.', 'success');
-    refreshSubscriptionStatus();
+    refreshSubscriptionStatus({ fresh: true });
   } else if (checkoutResult === 'cancel') {
     showStatus('Checkout abgebrochen.', 'info');
   }
@@ -729,8 +842,9 @@ function initCookieConsent() {
 }
 
 function maybeLoadAnalytics() {
-  const id = window.GA_MEASUREMENT_ID;
-  if (!id || document.getElementById('ga4-script')) return;
+  const id = (document.querySelector('meta[name="ga-measurement-id"]')?.content || '').trim();
+  // Format prüfen: Der Wert landet in einer Script-URL
+  if (!/^G-[A-Z0-9]{6,15}$/.test(id) || document.getElementById('ga4-script')) return;
 
   const script = document.createElement('script');
   script.id = 'ga4-script';

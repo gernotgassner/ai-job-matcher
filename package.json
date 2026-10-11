@@ -2,18 +2,15 @@
   "name": "skillmatcher",
   "version": "1.0.0",
   "type": "module",
-  "scripts": {
-    "dev": "node --watch api/server.js",
-    "start": "node api/server.js"
-  },
   "dependencies": {
+    "@supabase/supabase-js": "^2.117.2",
     "axios": "^1.7.2",
-    "cors": "^2.8.5",
-    "dotenv": "^16.4.5",
-    "express": "^4.19.2",
-    "google-auth-library": "^9.0.0",
+    "google-auth-library": "^11.2.0",
     "jsonwebtoken": "^9.0.2",
-    "stripe": "^17.4.0",
-    "@supabase/supabase-js": "^2.117.2"
+    "stripe": "^17.4.0"
+  },
+  "private": true,
+  "engines": {
+    "node": "22.x"
   }
 }

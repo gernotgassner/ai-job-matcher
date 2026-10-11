@@ -1,7 +1,11 @@
 import axios from 'axios';
-import jwt from 'jsonwebtoken';
 import { getEntitlement, isSuperuser } from './_stripe.js';
 import { logError } from './_supabase.js';
+import { verifyToken } from './_auth.js';
+import { apiPreamble } from './_http.js';
+import { rateLimit } from './_ratelimit.js';
+import { getCached, setCached } from './_cache.js';
+import { redactPii } from './_pii.js';
 
 // DACH-Region: einzig erlaubte Länder für die Jobsuche
 const ALLOWED_COUNTRIES = new Set(['Germany', 'Austria', 'Switzerland']);
@@ -20,15 +24,49 @@ const MORE_THRESHOLD = 50;
 // das ist der größte Hebel gegen unnötige KI-Kosten: schlecht passende
 // Kandidaten werden gar nicht erst an die KI geschickt.
 const RAW_FETCH_LIMIT = 15;
-const AI_SCORE_LIMIT = 10;
 
-function verifyToken(token) {
+// Schutz vor Missbrauch/Kostenexplosion. Anpassbar über Vercel-Env-Variablen.
+const SEARCH_LIMIT_PER_HOUR = parseInt(process.env.SEARCH_LIMIT_PER_HOUR || '20', 10);
+const SEARCH_LIMIT_PER_DAY = parseInt(process.env.SEARCH_LIMIT_PER_DAY || '100', 10);
+const MAX_CV_CHARS = 60000;
+
+// Gesamtes Zeitbudget einer Suche (Function-maxDuration in vercel.json: 60 s).
+// JSearch (max. 10 s) + KI (restliche Zeit minus Sicherheitsreserve) werden
+// darin eingepasst - die KI bekommt nie mehr Zeit als noch übrig ist, und
+// läuft sie ins Limit, liefert die Suche stattdessen die Keyword-Näherung
+// statt mit einem Timeout (HTTP 504) abzubrechen.
+const TOTAL_BUDGET_MS = 55000;
+const AI_MAX_TIMEOUT_MS = 40000;
+const AI_MIN_USEFUL_MS = 8000;
+const JSEARCH_CACHE_TTL_MS = 10 * 60 * 1000;
+
+function safeHttpUrl(value) {
   try {
-    return jwt.verify(token, process.env.JWT_SECRET || 'dev-secret-key-change-in-production');
-  } catch (error) {
-    return null;
+    const u = new URL(String(value));
+    return (u.protocol === 'https:' || u.protocol === 'http:') ? u.toString() : '#';
+  } catch {
+    return '#';
   }
 }
+
+// Nur die tatsächlich benötigten Felder aufbewahren (spart Speicher im Cache
+// und verhindert, dass beliebige Fremdfelder durchgereicht werden).
+function slimJob(job) {
+  return {
+    job_id: job.job_id,
+    job_title: job.job_title,
+    employer_name: job.employer_name,
+    job_city: job.job_city,
+    job_country: job.job_country,
+    job_employment_type: job.job_employment_type,
+    job_publisher: job.job_publisher,
+    job_apply_link: job.job_apply_link,
+    job_url: job.job_url,
+    job_description: String(job.job_description || '').slice(0, 2500),
+    job_highlights: { Qualifications: (job.job_highlights?.Qualifications || []).slice(0, 12) }
+  };
+}
+const AI_SCORE_LIMIT = 10;
 
 function extractKeywords(text = '') {
   const normalized = text.toLowerCase().replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim();
@@ -93,7 +131,25 @@ const CRITERIA_LABELS = {
 // nur Fallback, falls kein ANTHROPIC_API_KEY gesetzt ist oder der Aufruf
 // fehlschlägt. Haiku ist bewusst das günstigste Modell der aktuellen Reihe.
 // ---------------------------------------------------------------------------
-async function callModel(prompt, maxTokens = 3000) {
+async function postWithRetry(url, body, config, deadline) {
+  try {
+    return await axios.post(url, body, config);
+  } catch (error) {
+    const status = error.response?.status;
+    const retryable = [429, 500, 502, 503, 529].includes(status);
+    const wait = Math.min(2000, (Number(error.response?.headers?.['retry-after']) || 1) * 1000);
+    // Nur EIN Wiederholungsversuch und nur, wenn danach noch genug Zeit bleibt
+    if (retryable && Date.now() + wait + AI_MIN_USEFUL_MS < deadline) {
+      await new Promise((r) => setTimeout(r, wait));
+      const remaining = Math.max(5000, Math.min(config.timeout, deadline - Date.now() - 1000));
+      return axios.post(url, body, { ...config, timeout: remaining });
+    }
+    throw error;
+  }
+}
+
+async function callModel(prompt, maxTokens = 3000, deadline = Date.now() + AI_MAX_TIMEOUT_MS) {
+  const timeoutMs = Math.max(5000, Math.min(AI_MAX_TIMEOUT_MS, deadline - Date.now() - 3000));
   const anthropicKey = (process.env.ANTHROPIC_API_KEY || '').trim();
   const openaiKey = (process.env.OPENAI_API_KEY || '').trim();
 
@@ -103,13 +159,14 @@ async function callModel(prompt, maxTokens = 3000) {
 
   if (anthropicKey) {
     try {
-      const response = await axios.post(
+      const response = await postWithRetry(
         'https://api.anthropic.com/v1/messages',
         { model: 'claude-haiku-4-5-20251001', max_tokens: maxTokens, messages: [{ role: 'user', content: prompt }] },
         {
           headers: { 'x-api-key': anthropicKey, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
-          timeout: 25000
-        }
+          timeout: timeoutMs
+        },
+        deadline
       );
       const text = (response.data.content || []).find((b) => b.type === 'text')?.text;
       if (text) return text;
@@ -128,10 +185,10 @@ async function callModel(prompt, maxTokens = 3000) {
   };
   if (model.startsWith('gpt-4')) body.temperature = 0.2;
 
-  const response = await axios.post('https://api.openai.com/v1/chat/completions', body, {
+  const response = await postWithRetry('https://api.openai.com/v1/chat/completions', body, {
     headers: { Authorization: `Bearer ${openaiKey}`, 'Content-Type': 'application/json' },
-    timeout: 25000
-  });
+    timeout: Math.max(5000, Math.min(AI_MAX_TIMEOUT_MS, deadline - Date.now() - 3000))
+  }, deadline);
   return response.data?.choices?.[0]?.message?.content;
 }
 
@@ -148,8 +205,9 @@ function parseJsonResponse(text) {
 // statt per KI hergeleitet wird und beide Schritte daher nicht mehr
 // sequenziell voneinander abhängen.
 // ---------------------------------------------------------------------------
-async function analyzeAndScore({ cvText, careerGoal, aiJobs, includeGrowthTips }) {
+async function analyzeAndScore({ cvText, careerGoal, aiJobs, includeGrowthTips, deadline }) {
   if (aiJobs.length === 0) return { error: 'Keine Jobs zum Bewerten' };
+  if (deadline - Date.now() < AI_MIN_USEFUL_MS) return { error: 'Zeitbudget erschöpft - KI-Bewertung übersprungen' };
 
   const hasGoal = !!(careerGoal && careerGoal.trim());
 
@@ -204,7 +262,7 @@ Ein Eintrag in "results" pro Stellenanzeige, in Reihenfolge des "index"-Feldes.`
     // max_tokens grosszuegig genug fuer bis zu 10 Jobs inkl. optionaler
     // Wachstumsempfehlung, aber gedeckelt statt pauschal auf 4000+.
     const maxTokens = includeGrowthTips ? 3200 : 2400;
-    const text = await callModel(prompt, maxTokens);
+    const text = await callModel(prompt, maxTokens, deadline);
     if (!text) return { error: 'Leere Antwort der KI' };
     const parsed = parseJsonResponse(text);
     const list = Array.isArray(parsed.results) ? parsed.results : [];
@@ -239,20 +297,50 @@ function buildBreakdown(resultEntry, weights) {
 }
 
 export default async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  const deadline = Date.now() + TOTAL_BUDGET_MS;
 
-  if (req.method === 'OPTIONS') return res.status(200).end();
+  if (apiPreamble(req, res)) return;
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   const authHeader = req.headers.authorization || '';
   const token = authHeader.split(' ')[1];
   const decoded = verifyToken(token);
   if (!decoded) return res.status(401).json({ error: 'Unauthorized' });
 
+  // Eingaben prüfen, bevor irgendetwas Teures passiert
+  const { cvText, careerGoal, country, cursor } = req.body || {};
+  if (typeof cvText !== 'string' || !cvText.trim()) {
+    return res.status(400).json({ error: 'Kein Lebenslauf vorhanden' });
+  }
+  if (cvText.length > MAX_CV_CHARS) {
+    return res.status(413).json({ error: 'Der Lebenslauf ist zu lang.' });
+  }
+  if (careerGoal != null && typeof careerGoal !== 'string') {
+    return res.status(400).json({ error: 'Ungültige Eingabe' });
+  }
+  if (cursor != null && (typeof cursor !== 'string' || cursor.length > 500)) {
+    return res.status(400).json({ error: 'Ungültige Eingabe' });
+  }
+  if (!country || !ALLOWED_COUNTRIES.has(country)) {
+    return res.status(400).json({ error: 'Ungültiges Land. Erlaubt: Deutschland, Österreich, Schweiz' });
+  }
+
   const superuser = await isSuperuser(decoded.email);
 
-  // Seit dem Produkt-Pivot ist die Suche selbst fuer alle unbegrenzt moeglich.
+  // Rate-Limit: jede Suche löst bezahlte Aufrufe aus (KI + Jobbörse). Ohne
+  // Begrenzung könnte ein einzelnes Konto per Skript die Kosten in die Höhe
+  // treiben. Admins sind ausgenommen (Tests).
+  if (!superuser) {
+    const [hourly, daily] = await Promise.all([
+      rateLimit('search-h', decoded.email, SEARCH_LIMIT_PER_HOUR, 3600),
+      rateLimit('search-d', decoded.email, SEARCH_LIMIT_PER_DAY, 86400)
+    ]);
+    if (!hourly.allowed || !daily.allowed) {
+      return res.status(429).json({ error: 'Du hast sehr viele Suchen in kurzer Zeit gestartet. Bitte warte etwas und versuche es dann erneut.' });
+    }
+  }
+
+  // Seit dem Produkt-Pivot ist die Suche selbst fuer alle moeglich.
   // Das Abo steuert nur noch, wie viele/welche Ergebnisse angezeigt werden.
   let hasActiveSubscription = false;
   try {
@@ -260,15 +348,6 @@ export default async function handler(req, res) {
     hasActiveSubscription = entitlement.hasActiveSubscription;
   } catch (error) {
     console.error('Entitlement check failed (treating as not subscribed):', error.message);
-  }
-
-  const { cvText, careerGoal, country, cursor } = req.body;
-
-  if (!cvText || !cvText.trim()) {
-    return res.status(400).json({ error: 'Kein Lebenslauf vorhanden' });
-  }
-  if (!country || !ALLOWED_COUNTRIES.has(country)) {
-    return res.status(400).json({ error: 'Ungültiges Land. Erlaubt: Deutschland, Österreich, Schweiz' });
   }
 
   const cleanCareerGoal = (careerGoal || '').trim().slice(0, 800);
@@ -288,13 +367,21 @@ export default async function handler(req, res) {
     };
     if (cursor && hasActiveSubscription) params.cursor = cursor;
 
-    const response = await axios.get('https://jsearch.p.rapidapi.com/search-v2', {
-      params,
-      headers: { 'x-rapidapi-key': rapidApiKey, 'x-rapidapi-host': 'jsearch.p.rapidapi.com' },
-      timeout: 10000
-    });
+    // Gleiche Suche (Begriff+Land+Cursor) innerhalb von 10 Minuten: Ergebnis
+    // aus dem Cache statt erneut die (kontingentierte) Jobbörsen-API zu rufen.
+    // Gecacht werden nur öffentliche Stellenanzeigen, nie Nutzerdaten.
+    const cacheKey = `js:${params.country}:${params.query}:${params.cursor || ''}`;
+    let responseData = getCached(cacheKey);
+    if (!responseData) {
+      const response = await axios.get('https://jsearch.p.rapidapi.com/search-v2', {
+        params,
+        headers: { 'x-rapidapi-key': rapidApiKey, 'x-rapidapi-host': 'jsearch.p.rapidapi.com' },
+        timeout: Math.max(3000, Math.min(10000, deadline - Date.now() - AI_MIN_USEFUL_MS))
+      });
+      responseData = response.data;
+    }
 
-    const rawData = response.data?.data;
+    const rawData = responseData?.data;
     let rawJobs = [];
     let nextCursor = null;
     let shapeNote = null;
@@ -309,11 +396,14 @@ export default async function handler(req, res) {
         console.error(shapeNote);
       }
     } else {
-      shapeNote = `Unerwartete JSearch-v2-Antwort, Felder: ${Object.keys(response.data || {}).join(', ')}`;
+      shapeNote = `Unerwartete JSearch-v2-Antwort, Felder: ${Object.keys(responseData || {}).join(', ')}`;
       console.error(shapeNote);
     }
 
-    const rawFetched = rawJobs.slice(0, RAW_FETCH_LIMIT);
+    const rawFetched = rawJobs.slice(0, RAW_FETCH_LIMIT).map(slimJob);
+    if (rawFetched.length > 0 && !getCached(cacheKey)) {
+      setCached(cacheKey, { data: { jobs: rawFetched, cursor: nextCursor } }, JSEARCH_CACHE_TTL_MS);
+    }
 
     // Guenstiger Vorfilter: nur die vielversprechendsten AI_SCORE_LIMIT
     // Kandidaten werden tatsaechlich an die (bezahlte) KI geschickt. Das
@@ -341,7 +431,7 @@ export default async function handler(req, res) {
       company: job.employer_name || 'Unternehmen',
       location: `${job.job_city || 'Remote'}, ${job.job_country || country}`,
       country: job.job_country || country,
-      url: job.job_apply_link || job.job_url || '#',
+      url: safeHttpUrl(job.job_apply_link || job.job_url),
       source: job.job_publisher || null,
       match: calculateMatchScore(cvText, `${job.job_title || ''} ${job.job_description || ''}`),
       matchExplanation: 'Automatische Keyword-Näherung – keine KI-Bewertung verfügbar.',
@@ -349,7 +439,7 @@ export default async function handler(req, res) {
       growthRecommendation: null
     }));
 
-    const ai = await analyzeAndScore({ cvText, careerGoal: cleanCareerGoal, aiJobs, includeGrowthTips: hasActiveSubscription });
+    const ai = await analyzeAndScore({ cvText: redactPii(cvText), careerGoal: cleanCareerGoal, aiJobs, includeGrowthTips: hasActiveSubscription, deadline });
     const cvProfile = ai.cvProfile || null;
     const careerGoalFit = ai.careerGoalFit || null;
     const weights = computeWeights(hasCareerGoal, careerGoalFit?.alignmentScore);

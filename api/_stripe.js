@@ -1,5 +1,6 @@
 import Stripe from 'stripe';
 import { getSupabase } from './_supabase.js';
+import { getCached, setCached } from './_cache.js';
 
 // Fest hinterlegter Haupt-Admin - braucht keinen Eintrag in admin_users und
 // funktioniert auch, falls Supabase mal nicht erreichbar ist.
@@ -34,7 +35,19 @@ export async function getOrCreateCustomer(email) {
 // Abo-Status. Seit der Produktentscheidung "Suche immer möglich, Abo steuert
 // nur noch die Ergebnistiefe" gibt es kein Freikontingent/keine Monats-
 // Zählung mehr - entsprechend auch keine Metadaten-Schreibvorgänge mehr nötig.
-export async function getEntitlement(email) {
+const ENTITLEMENT_TTL_MS = 60 * 1000;
+
+// Abo-Status mit kurzem Cache (60 s): Ohne ihn würde jede Suche und jeder
+// Seitenaufruf zwei Stripe-API-Aufrufe auslösen - bei vielen gleichzeitigen
+// Nutzern würde man schnell ans Stripe-Rate-Limit stossen. Direkt nach einem
+// Checkout wird mit { fresh: true } am Cache vorbei neu geladen.
+export async function getEntitlement(email, { fresh = false } = {}) {
+  const cacheKey = `ent:${email}`;
+  if (!fresh) {
+    const hit = getCached(cacheKey);
+    if (hit) return hit;
+  }
+
   const stripe = getStripe();
   const customer = await getOrCreateCustomer(email);
 
@@ -45,11 +58,13 @@ export async function getEntitlement(email) {
   });
   const activeSub = subs.data.find((s) => ['active', 'trialing', 'past_due'].includes(s.status));
 
-  return {
+  const result = {
     customer,
     hasActiveSubscription: !!activeSub,
     subscription: activeSub || null
   };
+  setCached(cacheKey, result, ENTITLEMENT_TTL_MS);
+  return result;
 }
 
 // Zeigt technische Fehlerdetails (Statuscodes, Rohantworten Dritter) und den
@@ -70,6 +85,12 @@ export async function isSuperuser(email) {
     .filter(Boolean);
   if (envList.includes(lower)) return true;
 
+  // Kurzer Cache (60 s) für die DB-Prüfung; ein entzogener Admin-Zugriff
+  // wirkt dadurch spätestens nach einer Minute.
+  const cacheKey = `adm:${lower}`;
+  const cached = getCached(cacheKey);
+  if (cached !== undefined) return cached;
+
   try {
     const supabase = getSupabase();
     const { data, error } = await supabase
@@ -79,6 +100,7 @@ export async function isSuperuser(email) {
       .eq('status', 'confirmed')
       .maybeSingle();
     if (error) throw error;
+    setCached(cacheKey, !!data, 60 * 1000);
     return !!data;
   } catch (e) {
     console.error('isSuperuser: admin_users check failed (treating as non-admin):', e.message);

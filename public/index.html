@@ -43,8 +43,9 @@
   <!-- Google Analytics (GA4): Die Measurement-ID unten eintragen, sobald die
        GA4-Property angelegt ist. Das Skript lädt NICHT automatisch - app.js
        lädt es erst nach Zustimmung im Cookie-Banner (GDPR/nDSG-konform).
-       Siehe maybeLoadAnalytics() in app.js. -->
-  <script>window.GA_MEASUREMENT_ID = ''; /* z. B. 'G-XXXXXXXXXX' */</script>
+       Siehe maybeLoadAnalytics() in app.js. Die ID steht im Meta-Tag
+       unten (kein Inline-Skript, damit eine strenge CSP möglich bleibt). -->
+  <meta name="ga-measurement-id" content="" /> <!-- z. B. G-XXXXXXXXXX -->
 
   <!-- Structured Data (JSON-LD) für Rich Results -->
   <script type="application/ld+json">
@@ -76,10 +77,6 @@
     "inLanguage": "de"
   }
   </script>
-
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700;800&amp;family=DM+Sans:wght@400;500;600&amp;display=swap" rel="stylesheet" />
 
   <link rel="stylesheet" href="styles.css" />
   <script src="https://accounts.google.com/gsi/client" async defer></script>
@@ -115,6 +112,7 @@
           <h2>Willkommen zurück! 👋</h2>
           <p>Finde Jobangebote, die perfekt zu dir passen.</p>
           <div id="googleButtonContainer" class="google-button-container"></div>
+          <p id="loginNotice" class="field-hint" style="text-align:center; margin-top:12px;"></p>
         </div>
       </div>
 
@@ -390,8 +388,8 @@
   </div>
 
   <!-- Textextraktion für PDF/DOCX im Browser (Lebenslauf verlässt dafür den Browser nicht) -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+  <script src="vendor/pdf.min.js"></script>
+  <script src="vendor/mammoth.browser.min.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

@@ -22,11 +22,12 @@ Der Abo-Status wird serverseitig live gegen Stripe geprüft (keine eigene Datenb
 
 ## Benötigte Umgebungsvariablen (Vercel Project Settings)
 
-- `JWT_SECRET` – Signaturschlüssel für Login-Tokens
+- `JWT_SECRET` – **Pflicht**, Signaturschlüssel für Login-Tokens, mindestens 32 zufällige Zeichen (ohne gültigen Wert ist der Login bewusst deaktiviert)
 - `JSEARCH_API_KEY` – RapidAPI-Key für die JSearch-Jobsuche
 - `OPENAI_API_KEY` – für KI-Matching & Zusammenfassung (optional, aber empfohlen)
 - `ANTHROPIC_API_KEY` – alternativ zu OpenAI (wird nur genutzt, wenn kein OpenAI-Key gesetzt ist)
-- `GOOGLE_CLIENT_ID` – für den echten Google-Login (optional, Testlogin funktioniert auch ohne)
+- `GOOGLE_CLIENT_ID` – **Pflicht** für den Google-Login (wird für die Audience-Prüfung des ID-Tokens benötigt; muss der Client-ID in `public/app.js` entsprechen)
+- `SEARCH_LIMIT_PER_HOUR` / `SEARCH_LIMIT_PER_DAY` – optional, Missbrauchsschutz pro Nutzer (Standard 20 / 100)
 
 ## Admin-Bereich
 
@@ -35,6 +36,10 @@ Erreichbar unter `/admin.html` (verlinkt im Profil, aber nur für Admins sichtba
 - Zusätzliche Admins: über den „Einladen"-Button im Admin-Bereich selbst eingeladen (landen zunächst mit Status „ausstehend" in der `admin_users`-Tabelle) - die Einladung bestätigt sich automatisch, sobald sich genau diese E-Mail-Adresse per Google-Login anmeldet.
 
 Zeigt: Nutzerwachstum und Abo-Entwicklung (abgeschlossen/gekündigt) über die Zeit - direkt aus Stripe berechnet, keine eigene Datenhaltung dafür nötig; Feedback- und Störungsmeldungen von Nutzern; ein anonymisiertes Fehlerprotokoll (bewusst ohne Nutzerzuordnung); Admin-Verwaltung.
+
+## Sicherheit
+
+Siehe [SECURITY.md](SECURITY.md) und die Checkliste [docs/hardening-checklist.md](docs/hardening-checklist.md) (inkl. der manuellen Einstellungen bei GitHub, Vercel, Supabase, Google, Stripe und Anthropic). Supabase-Migrationen liegen in `supabase/` und müssen der Reihe nach im SQL-Editor ausgeführt werden (`schema.sql`, `migration_002…`, `migration_003…`).
 
 ## Deployment
 

@@ -1,0 +1,9 @@
+# Automatische Pull Requests bei Sicherheitsupdates und neuen Versionen der
+# npm-Abhängigkeiten (Lockfile wird mitgepflegt).
+version: 2
+updates:
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5

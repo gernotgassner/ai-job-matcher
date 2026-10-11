@@ -1,20 +1,11 @@
-import jwt from 'jsonwebtoken';
 import { getEntitlement, isSuperuser } from './_stripe.js';
-
-function verifyToken(token) {
-  try {
-    return jwt.verify(token, process.env.JWT_SECRET || 'dev-secret-key-change-in-production');
-  } catch {
-    return null;
-  }
-}
+import { verifyToken } from './_auth.js';
+import { apiPreamble } from './_http.js';
+import { rateLimit } from './_ratelimit.js';
 
 export default async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
-  if (req.method === 'OPTIONS') return res.status(200).end();
+  if (apiPreamble(req, res)) return;
 
   const token = (req.headers.authorization || '').split(' ')[1];
   const decoded = verifyToken(token);
@@ -31,8 +22,16 @@ export default async function handler(req, res) {
     console.error('isSuperuser check failed:', error.message);
   }
 
+  // "fresh" umgeht den Cache (nach dem Checkout nötig) - damit niemand damit
+  // die Stripe-API hämmern kann, ist es auf 10 Aufrufe pro Stunde begrenzt.
+  let fresh = req.query?.fresh === '1';
+  if (fresh) {
+    const rl = await rateLimit('fresh', decoded.email, 10, 3600);
+    if (!rl.allowed) fresh = false;
+  }
+
   try {
-    const { hasActiveSubscription, subscription } = await getEntitlement(decoded.email);
+    const { hasActiveSubscription, subscription } = await getEntitlement(decoded.email, { fresh });
 
     res.json({
       subscribed: hasActiveSubscription,
