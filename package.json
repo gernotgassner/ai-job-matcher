@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "type": "module",
   "dependencies": {
-    "@supabase/supabase-js": "^2.117.2",
+    "@supabase/supabase-js": "^2.119.0",
     "axios": "^1.7.2",
     "google-auth-library": "^11.2.0",
     "jsonwebtoken": "^9.0.2",
